@@ -150,7 +150,7 @@ export class ApiClient {
     payload: { type: string; name?: string; duration?: number; url?: string },
     file?: PickedFile,
   ): Promise<ConcertoPlaylistItem> {
-    if (payload.type === 'Graphic' && file) {
+    if ((payload.type === 'Graphic' || payload.type === 'Video') && file) {
       const form = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
@@ -159,10 +159,12 @@ export class ApiClient {
       if (Platform.OS === 'web') {
         const response = await fetch(file.uri);
         const blob = await response.blob();
-        form.append('image', blob, file.name);
+        const field = payload.type === 'Video' ? 'video' : 'image';
+        form.append(field, blob, file.name);
       } else {
+        const field = payload.type === 'Video' ? 'video' : 'image';
         // @ts-ignore FormData file type compatibility for RN
-        form.append('image', { uri: file.uri, name: file.name, type: file.type });
+        form.append(field, { uri: file.uri, name: file.name, type: file.type });
       }
       const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist`, {
         method: 'POST',

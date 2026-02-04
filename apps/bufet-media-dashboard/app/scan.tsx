@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { Button, HelperText, Text, TextInput } from 'react-native-paper';
+import { Button, HelperText, Text } from 'react-native-paper';
+import { TextInput } from '../components/TextInput';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CameraView, useCameraPermissions } from 'expo-camera';

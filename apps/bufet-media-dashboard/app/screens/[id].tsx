@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Button, IconButton, Text, TextInput } from 'react-native-paper';
+import { Button, IconButton, Text } from 'react-native-paper';
+import { TextInput } from '../../components/TextInput';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
@@ -23,6 +24,7 @@ type ScreenParams = {
 type MediaFormState = {
   open: boolean;
   type: 'Graphic' | 'Video';
+  source: 'url' | 'file';
   name: string;
   duration: string;
   url: string;
@@ -33,6 +35,7 @@ type MediaFormState = {
 const emptyForm: MediaFormState = {
   open: false,
   type: 'Graphic',
+  source: 'url',
   name: '',
   duration: '15',
   url: '',
@@ -102,17 +105,29 @@ export default function ScreenEditor() {
     mutationFn: async () => {
       if (!screenId) throw new Error('Экран не найден');
       if (form.type === 'Graphic' && !form.file) throw new Error('Выберите изображение');
-      if (form.type === 'Video' && !form.url) throw new Error('Укажите ссылку на видео');
+      if (form.type === 'Video' && form.source === 'url' && !form.url) {
+        throw new Error('Укажите ссылку на видео');
+      }
+      if (form.type === 'Video' && form.source === 'file' && !form.file) {
+        throw new Error('Выберите видеофайл');
+      }
+      if (form.type === 'Video' && form.source === 'file' && form.file?.size && form.file.size > 100 * 1024 * 1024) {
+        throw new Error('Видео больше 100MB');
+      }
 
       const payload = {
         type: form.type,
         name: form.name || undefined,
-        duration: form.duration ? Number(form.duration) : undefined,
-        url: form.type === 'Video' ? form.url : undefined,
+        duration: form.type === 'Graphic' && form.duration ? Number(form.duration) : undefined,
+        url: form.type === 'Video' && form.source === 'url' ? form.url : undefined,
       };
 
       const file = form.file
-        ? { uri: form.file.uri, name: form.file.name ?? 'upload', type: form.file.mimeType ?? 'image/jpeg' }
+        ? {
+            uri: form.file.uri,
+            name: form.file.name ?? 'upload',
+            type: form.file.mimeType ?? 'application/octet-stream',
+          }
         : undefined;
 
       return apiClient.createScreenPlaylistItem(screenId, payload, file);
@@ -239,19 +254,23 @@ export default function ScreenEditor() {
                     <View style={styles.mediaInfo}>
                       <Text style={styles.mediaTitle}>{item.name ?? (isVideo ? 'Видео' : 'Изображение')}</Text>
                       <Text style={styles.mediaMeta}>Тип: {isVideo ? 'Видео' : 'Картинка'}</Text>
-                      <TextInput
-                        label="Длительность (сек)"
-                        value={durationValue}
-                        keyboardType="numeric"
-                        onChangeText={(value) => setDurations((prev) => ({ ...prev, [item.submissionId]: value }))}
-                        onBlur={() => {
-                          const parsed = Number(durationValue);
-                          if (Number.isFinite(parsed) && parsed > 0 && parsed !== item.duration) {
-                            updateItemMutation.mutate({ submissionId: item.submissionId, payload: { duration: parsed } });
-                          }
-                        }}
-                        style={styles.durationInput}
-                      />
+                      {isVideo ? (
+                        <Text style={styles.mediaMeta}>Длительность: авто</Text>
+                      ) : (
+                        <TextInput
+                          label="Длительность (сек)"
+                          value={durationValue}
+                          keyboardType="numeric"
+                          onChangeText={(value) => setDurations((prev) => ({ ...prev, [item.submissionId]: value }))}
+                          onBlur={() => {
+                            const parsed = Number(durationValue);
+                            if (Number.isFinite(parsed) && parsed > 0 && parsed !== item.duration) {
+                              updateItemMutation.mutate({ submissionId: item.submissionId, payload: { duration: parsed } });
+                            }
+                          }}
+                          style={styles.durationInput}
+                        />
+                      )}
                     </View>
 
                     <View style={styles.mediaActions}>
@@ -282,15 +301,21 @@ export default function ScreenEditor() {
             <View style={styles.modalTypeRow}>
               <Button
                 mode={form.type === 'Graphic' ? 'contained' : 'outlined'}
-                onPress={() => setForm((prev) => ({ ...prev, type: 'Graphic' }))}
+                onPress={() => setForm((prev) => ({ ...prev, type: 'Graphic', source: 'url', file: null, url: '', error: null }))}
               >
                 Картинка
               </Button>
               <Button
-                mode={form.type === 'Video' ? 'contained' : 'outlined'}
-                onPress={() => setForm((prev) => ({ ...prev, type: 'Video' }))}
+                mode={form.type === 'Video' && form.source === 'url' ? 'contained' : 'outlined'}
+                onPress={() => setForm((prev) => ({ ...prev, type: 'Video', source: 'url', file: null, error: null }))}
               >
                 Видео (URL)
+              </Button>
+              <Button
+                mode={form.type === 'Video' && form.source === 'file' ? 'contained' : 'outlined'}
+                onPress={() => setForm((prev) => ({ ...prev, type: 'Video', source: 'file', url: '', error: null }))}
+              >
+                Видео (файл до 100MB)
               </Button>
             </View>
             {form.error ? <Text style={styles.errorText}>{form.error}</Text> : null}
@@ -300,24 +325,45 @@ export default function ScreenEditor() {
               onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
               style={styles.input}
             />
-            <TextInput
-              label="Длительность (сек)"
-              value={form.duration}
-              keyboardType="numeric"
-              onChangeText={(value) => setForm((prev) => ({ ...prev, duration: value }))}
-              style={styles.input}
-            />
+            {form.type === 'Graphic' ? (
+              <TextInput
+                label="Длительность (сек)"
+                value={form.duration}
+                keyboardType="numeric"
+                onChangeText={(value) => setForm((prev) => ({ ...prev, duration: value }))}
+                style={styles.input}
+              />
+            ) : (
+              <Text style={styles.mediaMeta}>Длительность видео берётся автоматически.</Text>
+            )}
             {form.type === 'Graphic' ? (
               <Button
                 mode="outlined"
                 onPress={async () => {
                   const result = await DocumentPicker.getDocumentAsync({ type: 'image/*' });
                   if (!result.canceled) {
-                    setForm((prev) => ({ ...prev, file: result.assets[0] }));
+                    setForm((prev) => ({ ...prev, file: result.assets[0], error: null }));
                   }
                 }}
               >
                 {form.file ? `Файл: ${form.file.name}` : 'Выбрать изображение'}
+              </Button>
+            ) : form.source === 'file' ? (
+              <Button
+                mode="outlined"
+                onPress={async () => {
+                  const result = await DocumentPicker.getDocumentAsync({ type: 'video/*' });
+                  if (!result.canceled) {
+                    const asset = result.assets[0];
+                    if (asset?.size && asset.size > 100 * 1024 * 1024) {
+                      setForm((prev) => ({ ...prev, file: null, error: 'Видео больше 100MB' }));
+                    } else {
+                      setForm((prev) => ({ ...prev, file: asset, error: null }));
+                    }
+                  }
+                }}
+              >
+                {form.file ? `Файл: ${form.file.name}` : 'Выбрать видео (до 100MB)'}
               </Button>
             ) : (
               <TextInput

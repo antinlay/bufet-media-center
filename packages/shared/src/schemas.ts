@@ -39,6 +39,7 @@ export const PlaylistItemSchema = z.object({
   playlistId: z.string().uuid(),
   type: z.enum(['IMAGE', 'VIDEO']),
   url: z.string().url(),
+  thumbnailUrl: z.string().url().optional().nullable(),
   durationSeconds: z.number().positive().optional().nullable(),
   order: z.number().min(0),
   createdAt: z.date(),

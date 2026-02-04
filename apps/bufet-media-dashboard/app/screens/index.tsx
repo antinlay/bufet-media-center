@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, RadioButton, Text, TextInput } from 'react-native-paper';
+import { Button, RadioButton, Text } from 'react-native-paper';
+import { TextInput } from '../../components/TextInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../components/AppShell';

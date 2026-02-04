@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Button, HelperText, RadioButton, Text, TextInput } from 'react-native-paper';
+import { Button, HelperText, RadioButton, Text } from 'react-native-paper';
+import { TextInput } from '../components/TextInput';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
