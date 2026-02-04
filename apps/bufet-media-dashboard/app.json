@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "BUFET Dashboard",
+    "slug": "bufet-dashboard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "bufetdash",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-camera"
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "ios": {
+      "bundleIdentifier": "com.lyabowski.bufet-dashboard",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Нужен доступ к камере для сканирования QR-кодов."
+      }
+    },
+    "android": {
+      "permissions": [
+        "CAMERA"
+      ]
+    }
+  }
+}

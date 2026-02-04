@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: bufet-postgres
+    environment:
+      POSTGRES_DB: bufet
+      POSTGRES_USER: bufet
+      POSTGRES_PASSWORD: bufet123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bufet-network
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: bufet-api
+    environment:
+      DATABASE_URL: postgresql://bufet:bufet123@postgres:5432/bufet
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      DASHBOARD_BASE_URL: http://localhost:3000
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    volumes:
+      - ./apps/api:/app
+      - /app/node_modules
+    networks:
+      - bufet-network
+
+  dashboard:
+    build:
+      context: ./apps/dashboard
+      dockerfile: Dockerfile
+    container_name: bufet-dashboard
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/dashboard:/app
+      - /app/node_modules
+    networks:
+      - bufet-network
+
+volumes:
+  postgres_data:
+
+networks:
+  bufet-network:
+    driver: bridge

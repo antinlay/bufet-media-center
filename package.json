@@ -1,0 +1,18 @@
+{
+  "name": "bufet-digital-signage",
+  "version": "1.0.0",
+  "description": "Digital Signage MVP - BUFET Player, Cabinet, and Backend",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm run --parallel dev",
+    "build": "pnpm run --recursive build",
+    "lint": "pnpm run --recursive lint",
+    "typecheck": "pnpm run --recursive typecheck",
+    "test": "pnpm run --recursive test"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
