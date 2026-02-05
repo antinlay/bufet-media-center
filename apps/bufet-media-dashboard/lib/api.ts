@@ -147,7 +147,7 @@ export class ApiClient {
 
   async createScreenPlaylistItem(
     screenId: number,
-    payload: { type: string; name?: string; duration?: number; url?: string },
+    payload: { type: string; name?: string; duration?: number; url?: string; content_id?: number },
     file?: PickedFile,
   ): Promise<ConcertoPlaylistItem> {
     if ((payload.type === 'Graphic' || payload.type === 'Video') && file) {
@@ -180,6 +180,28 @@ export class ApiClient {
       body: JSON.stringify(payload),
     });
     return handleResponse<ConcertoPlaylistItem>(res);
+  }
+
+  async addContentToScreenPlaylist(
+    screenId: number,
+    contentId: number,
+    duration?: number,
+  ): Promise<ConcertoPlaylistItem> {
+    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ content_id: contentId, duration }),
+    });
+    return handleResponse<ConcertoPlaylistItem>(res);
+  }
+
+  async applyScreenPlaylist(screenId: number, sourceScreenId: number): Promise<ConcertoPlaylistResponse> {
+    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist/apply`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ source_screen_id: sourceScreenId }),
+    });
+    return handleResponse<ConcertoPlaylistResponse>(res);
   }
 
   async updateScreenPlaylistItem(
@@ -329,7 +351,7 @@ export class ApiClient {
     format?: string;
     feed_ids?: number[];
   }, file?: PickedFile): Promise<ConcertoContent> {
-    if (payload.type === 'Graphic' && file) {
+    if ((payload.type === 'Graphic' || payload.type === 'Video') && file) {
       const form = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
@@ -342,10 +364,12 @@ export class ApiClient {
       if (Platform.OS === 'web') {
         const response = await fetch(file.uri);
         const blob = await response.blob();
-        form.append('image', blob, file.name);
+        const field = payload.type === 'Video' ? 'video' : 'image';
+        form.append(field, blob, file.name);
       } else {
         // @ts-ignore FormData file type compatibility for RN
-        form.append('image', { uri: file.uri, name: file.name, type: file.type });
+        const field = payload.type === 'Video' ? 'video' : 'image';
+        form.append(field, { uri: file.uri, name: file.name, type: file.type });
       }
       const res = await fetch(`${BASE_URL}/api/v1/contents`, {
         method: 'POST',
