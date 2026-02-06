@@ -1,0 +1,22 @@
+{
+  # Keep defaults minimal and predictable.
+  email you@example.com
+}
+
+bufet-api.duckdns.org {
+  encode zstd gzip
+
+  # Rails container is on the same Docker network.
+  reverse_proxy api:80
+}
+
+bufet-dashboard.duckdns.org {
+  encode zstd gzip
+
+  root * /srv/dashboard
+
+  # SPA fallback so routes like /pair work when refreshed.
+  try_files {path} /index.html
+  file_server
+}
+

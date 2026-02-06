@@ -1,0 +1,13 @@
+.DS_Store
+.git
+node_modules
+**/node_modules
+.expo
+**/.expo
+_external
+*.key
+
+apps/api/
+apps/api/**
+apps/bufet-media-dashboard/
+apps/bufet-media-dashboard/**

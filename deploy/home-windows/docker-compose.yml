@@ -1,0 +1,34 @@
+services:
+  api:
+    build:
+      context: ../../apps/api
+    environment:
+      RAILS_ENV: production
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      CONCERTO_DASHBOARD_URL: ${CONCERTO_DASHBOARD_URL}
+      # If you need to disable SSL enforcement for troubleshooting, set DISABLE_SSL=1 in .env.
+      DISABLE_SSL: ${DISABLE_SSL:-}
+    volumes:
+      # This is where sqlite DB + ActiveStorage live for the default config.
+      - ../../apps/api/storage:/rails/storage
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Static dashboard output copied to Windows.
+      - ../../apps/bufet-media-dashboard/dist:/srv/dashboard:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+
