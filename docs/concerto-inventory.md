@@ -2,6 +2,7 @@
 
 ## Source
 - Repository: `apps/api`
+- Note: `apps/api` is vendored into this monorepo (not a git submodule). The upstream `.git` directory is not kept.
 - Rails version: `8.1.1` (Gemfile)
 - DB: SQLite (`config/database.yml`)
 - Frontend player (Concerto): `app/frontend` (Vite + Vue)
