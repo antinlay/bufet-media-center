@@ -9,6 +9,7 @@ import { useProtectedRoute } from '../hooks/useProtectedRoute';
 import { AppShell } from '../components/AppShell';
 import { BrandCard } from '../components/BrandCard';
 import { brandFonts, palette } from '../theme';
+import { buildGroupTree, flattenGroupTree } from '../lib/groupTree';
 
 export default function PairScreen() {
   useProtectedRoute();
@@ -20,12 +21,10 @@ export default function PairScreen() {
   const [pairMode, setPairMode] = useState<'new' | 'existing'>('new');
   const [name, setName] = useState('');
   const [groupId, setGroupId] = useState<number | null>(null);
-  const [templateId, setTemplateId] = useState<number | null>(null);
   const [screenId, setScreenId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });
-  const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: () => apiClient.getTemplates() });
   const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
 
   useEffect(() => {
@@ -35,6 +34,16 @@ export default function PairScreen() {
   const availableGroups = useMemo(() => {
     return (groupsQuery.data ?? []).filter((group) => !group.systemGroup);
   }, [groupsQuery.data]);
+  const flatGroups = useMemo(
+    () => flattenGroupTree(buildGroupTree(availableGroups)),
+    [availableGroups],
+  );
+
+  useEffect(() => {
+    if (!groupId && flatGroups.length) {
+      setGroupId(flatGroups[0].group.id);
+    }
+  }, [flatGroups, groupId]);
 
   const pairMutation = useMutation({
     mutationFn: () => {
@@ -43,10 +52,10 @@ export default function PairScreen() {
         if (!screenId) throw new Error('Выберите экран');
         return apiClient.pairDevice({ code, screen_id: screenId });
       }
-      if (!name || !groupId || !templateId) {
-        throw new Error('Укажите имя, организацию и макет');
+      if (!name || !groupId) {
+        throw new Error('Укажите имя и организацию');
       }
-      return apiClient.pairDevice({ code, screen: { name, group_id: groupId, template_id: templateId } });
+      return apiClient.pairDevice({ code, screen: { name, group_id: groupId } });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['screens'] });
@@ -87,27 +96,11 @@ export default function PairScreen() {
                 value={groupId ? String(groupId) : ''}
                 onValueChange={(value) => setGroupId(Number(value))}
               >
-                {availableGroups.map((group) => (
+                {flatGroups.map(({ group, depth }) => (
                   <RadioButton.Item
                     key={group.id}
-                    label={group.name}
+                    label={`${'—'.repeat(depth)} ${group.name}`}
                     value={String(group.id)}
-                    labelStyle={styles.radioLabel}
-                  />
-                ))}
-              </RadioButton.Group>
-            </View>
-            <View style={styles.selector}>
-              <Text style={styles.selectorTitle}>Макет</Text>
-              <RadioButton.Group
-                value={templateId ? String(templateId) : ''}
-                onValueChange={(value) => setTemplateId(Number(value))}
-              >
-                {(templatesQuery.data ?? []).map((template) => (
-                  <RadioButton.Item
-                    key={template.id}
-                    label={template.name}
-                    value={String(template.id)}
                     labelStyle={styles.radioLabel}
                   />
                 ))}

@@ -1,0 +1,46 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  content: one
+  feed: one
+  position: 0
+
+two:
+  content: two
+  feed: two
+  position: 0
+
+three:
+  content: plain_richtext
+  feed: two
+  position: 1
+
+four:
+  content: html_richtext
+  feed: two
+  position: 2
+
+five:
+  content: active_ticker_text
+  feed: two
+  position: 3
+
+e2e_ticker_1:
+  content: e2e_ticker_1
+  feed: e2e_ticker_feed
+  position: 0
+
+e2e_ticker_2:
+  content: e2e_ticker_2
+  feed: e2e_ticker_feed
+  position: 1
+
+e2e_graphic_1:
+  content: e2e_graphic_1
+  feed: e2e_graphic_feed
+  position: 0
+
+e2e_graphic_2:
+  content: e2e_graphic_2
+  feed: e2e_graphic_feed
+  position: 1

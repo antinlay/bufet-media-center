@@ -8,10 +8,7 @@ import { useAuth } from '../providers/AuthProvider';
 const navItems = [
   { label: 'Обзор', href: '/' },
   { label: 'Экраны', href: '/screens' },
-  { label: 'Макеты', href: '/templates' },
-  { label: 'Ленты', href: '/feeds' },
   { label: 'Материалы', href: '/contents' },
-  { label: 'Модерация', href: '/moderation' },
   { label: 'Организации', href: '/groups' },
   { label: 'Пользователи', href: '/users' },
   { label: 'Привязка', href: '/pair' },

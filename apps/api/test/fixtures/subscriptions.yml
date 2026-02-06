@@ -1,0 +1,31 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  screen: one
+  field: main
+  feed: two
+
+one_sidebar_rss:
+  screen: one
+  field: sidebar
+  feed: nytimes_rssfeed
+
+two:
+  screen: two
+  field: sidebar
+  feed: nytimes_rssfeed
+
+two_ticker:
+  screen: two
+  field: ticker
+  feed: two
+
+e2e_ticker:
+  screen: e2e
+  field: ticker
+  feed: e2e_ticker_feed
+
+e2e_graphic:
+  screen: e2e
+  field: main
+  feed: e2e_graphic_feed

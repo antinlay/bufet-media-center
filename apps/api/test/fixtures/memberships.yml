@@ -1,0 +1,66 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+system_admin_in_all_users:
+  user: system_admin
+  group: all_users
+  role: member
+
+system_admin_in_system_administrators:
+  user: system_admin
+  group: system_administrators
+  role: admin
+
+admin_in_all_users:
+  user: admin
+  group: all_users
+  role: member
+
+regular_in_all_users:
+  user: regular
+  group: all_users
+  role: member
+
+admin_content_creator:
+  user: admin
+  group: content_creators
+  role: admin
+
+regular_content_creator:
+  user: regular
+  group: content_creators
+  role: member
+
+admin_moderator:
+  user: admin
+  group: moderators
+  role: admin
+
+admin_screen_one_owners:
+  user: admin
+  group: screen_one_owners
+  role: admin
+
+regular_screen_one_owners:
+  user: regular
+  group: screen_one_owners
+  role: member
+
+admin_screen_two_owners:
+  user: admin
+  group: screen_two_owners
+  role: member
+
+admin_feed_one_owners:
+  user: admin
+  group: feed_one_owners
+  role: admin
+
+regular_feed_one_owners:
+  user: regular
+  group: feed_one_owners
+  role: member
+
+admin_feed_two_owners:
+  user: admin
+  group: feed_two_owners
+  role: admin

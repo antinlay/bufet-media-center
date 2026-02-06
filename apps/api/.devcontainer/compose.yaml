@@ -1,0 +1,30 @@
+name: "concerto"
+
+services:
+  rails-app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+
+    volumes:
+    - ../../concerto:/workspaces/concerto:cached
+
+    # Overrides default command so things don't shut down after the process ends.
+    command: sleep infinity
+
+    # Uncomment the next line to use a non-root user for all processes.
+    # user: vscode
+
+    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+    depends_on:
+    - selenium
+
+  selenium:
+    image: selenium/standalone-chromium
+    restart: unless-stopped
+    # Use shared memory to reduce the likelihood of a crash like:
+    #   Selenium::WebDriver::Error::InvalidSessionIdError: invalid session id
+    #   session deleted because of page crash from tab crashed
+    shm_size: 2gb
+

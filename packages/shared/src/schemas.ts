@@ -130,6 +130,7 @@ export const DeviceConfigResponseSchema = z.object({
 export const ConcertoGroupSchema = z.object({
   id: z.number(),
   name: z.string(),
+  parentId: z.number().nullable().optional(),
   description: z.string().nullable().optional(),
   systemGroup: z.boolean().optional(),
   createdAt: z.string().optional(),
@@ -277,7 +278,12 @@ export const ConcertoUserSchema = z.object({
   firstName: z.string().nullable().optional(),
   lastName: z.string().nullable().optional(),
   systemAdmin: z.boolean().optional(),
-  groups: z.array(z.object({ id: z.number(), name: z.string(), role: z.string() })).optional(),
+  groups: z.array(z.object({
+    membershipId: z.number().optional(),
+    id: z.number(),
+    name: z.string(),
+    role: z.string(),
+  })).optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });

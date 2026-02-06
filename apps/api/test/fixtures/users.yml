@@ -1,0 +1,32 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+system_user: # Seeds do not run in test, so we need to manually create this user.
+  email: system@concerto.test
+  first_name: System
+  last_name: User
+  encrypted_password: <%= User.new.send(:password_digest, 'password123') %>
+  is_system_user: true
+
+system_admin:
+  email: sysadmin@concerto.test
+  first_name: System
+  last_name: Administrator
+  encrypted_password: <%= User.new.send(:password_digest, 'password123') %>
+
+admin:
+  email: admin@concerto.test
+  first_name: Admin
+  last_name: User
+  encrypted_password: <%= User.new.send(:password_digest, 'password123') %>
+
+regular:
+  email: user@concerto.test
+  first_name: Regular
+  last_name: User
+  encrypted_password: <%= User.new.send(:password_digest, 'password123') %>
+
+non_member:
+  email: no-one@concerto.test
+  first_name: Non member
+  last_name: User
+  encrypted_password: <%= User.new.send(:password_digest, 'password123') %>

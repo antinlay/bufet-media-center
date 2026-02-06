@@ -102,7 +102,7 @@ export class ApiClient {
     return handleResponse<ConcertoSubscription[]>(res);
   }
 
-  async createScreen(payload: { name: string; group_id: number; template_id: number }): Promise<ConcertoScreen> {
+  async createScreen(payload: { name: string; group_id: number; template_id?: number | null }): Promise<ConcertoScreen> {
     const res = await fetch(`${BASE_URL}/api/v1/screens`, {
       method: 'POST',
       headers: this.headers(),
@@ -473,7 +473,7 @@ export class ApiClient {
     return handleResponse<ConcertoGroup[]>(res);
   }
 
-  async createGroup(payload: { name: string; description?: string | null }): Promise<ConcertoGroup> {
+  async createGroup(payload: { name: string; description?: string | null; parent_id?: number | null }): Promise<ConcertoGroup> {
     const res = await fetch(`${BASE_URL}/api/v1/groups`, {
       method: 'POST',
       headers: this.headers(),
@@ -482,7 +482,7 @@ export class ApiClient {
     return handleResponse<ConcertoGroup>(res);
   }
 
-  async updateGroup(id: number, payload: Partial<{ name: string; description?: string | null }>): Promise<ConcertoGroup> {
+  async updateGroup(id: number, payload: Partial<{ name: string; description?: string | null; parent_id?: number | null }>): Promise<ConcertoGroup> {
     const res = await fetch(`${BASE_URL}/api/v1/groups/${id}`, {
       method: 'PATCH',
       headers: this.headers(),
@@ -504,6 +504,14 @@ export class ApiClient {
       headers: this.headers(false),
     });
     return handleResponse<ConcertoUser[]>(res);
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    const res = await fetch(`${BASE_URL}/api/v1/users/${id}`, {
+      method: 'DELETE',
+      headers: this.headers(false),
+    });
+    return handleResponse<void>(res);
   }
 
   async createMembership(payload: { user_id: number; group_id: number; role?: string }): Promise<void> {
@@ -533,7 +541,7 @@ export class ApiClient {
   }
 
   // Pairing
-  async pairDevice(payload: { code: string; screen?: { name: string; group_id: number; template_id: number }; screen_id?: number }): Promise<ConcertoPairingResult> {
+  async pairDevice(payload: { code: string; screen?: { name: string; group_id: number; template_id?: number | null }; screen_id?: number }): Promise<ConcertoPairingResult> {
     const res = await fetch(`${BASE_URL}/api/v1/pairings`, {
       method: 'POST',
       headers: this.headers(),

@@ -1,7 +1,7 @@
 # Concerto inventory (Bufet integration)
 
 ## Source
-- Repository: `_external/concerto`
+- Repository: `apps/api`
 - Rails version: `8.1.1` (Gemfile)
 - DB: SQLite (`config/database.yml`)
 - Frontend player (Concerto): `app/frontend` (Vite + Vue)

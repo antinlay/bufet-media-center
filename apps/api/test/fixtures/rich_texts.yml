@@ -1,0 +1,78 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+plain_richtext:
+  type: RichText
+  name: MyString
+  duration: 1
+  start_time: <%= 2.days.ago %>
+  end_time: <%= 1.day.ago %>
+  text: MyText
+  config: {'render_as': 'plaintext'}
+  user: admin
+
+html_richtext:
+  type: RichText
+  name: MyString
+  duration: 1
+  start_time: <%= 1.hour.ago %>
+  end_time: <%= 1.hour.from_now %>
+  text: MyText
+  config: {'render_as': 'html'}
+  user: admin
+
+active_ticker_text:
+  type: RichText
+  name: Active Ticker Text
+  duration: 1
+  start_time: <%= 1.hour.ago %>
+  end_time: <%= 1.hour.from_now %>
+  text: Active ticker content for testing
+  config: {'render_as': 'plaintext'}
+  user: admin
+
+e2e_ticker_1:
+  type: RichText
+  name: Ticker text for system test
+  duration: 1
+  text: First ticker text for system tests
+  config: {'render_as': 'plaintext'}
+  user: admin
+
+e2e_ticker_2:
+  type: RichText
+  name: Ticker text for system test
+  duration: 1
+  text: Second ticker text for system tests
+  config: {'render_as': 'plaintext'}
+  user: admin
+
+# Test fixtures for scope testing
+active_richtext_with_end:
+  type: RichText
+  name: "Active RichText with End Time"
+  duration: 60
+  start_time:
+  end_time: <%= 1.hour.from_now %>
+  text: "This content is currently active"
+  config: {'render_as': 'plaintext'}
+  user: admin
+
+active_richtext_with_both:
+  type: RichText
+  name: "Active RichText with Both Times"
+  duration: 30
+  start_time: <%= 1.hour.ago %>
+  end_time: <%= 1.hour.from_now %>
+  text: "This content is active with both times set"
+  config: {'render_as': 'html'}
+  user: admin
+
+upcoming_richtext_no_end:
+  type: RichText
+  name: "Upcoming RichText No End"
+  duration: 30
+  start_time: <%= 1.hour.from_now %>
+  end_time:
+  text: "This content will be active later"
+  config: {'render_as': 'plaintext'}
+  user: admin

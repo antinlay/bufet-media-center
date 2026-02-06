@@ -1,0 +1,36 @@
+class Frontend::ScreensController < Frontend::ApplicationController
+  before_action :set_screen, only: %i[ show ]
+
+  def show
+    positions = @screen.template.positions.map { |p|
+      {
+        id: p.id,
+        top: p.top,
+        left: p.left,
+        bottom: p.bottom,
+        right: p.right,
+        style: p.style,
+        content_uri: frontend_content_path(screen_id: @screen.id, field_id: p.field_id, position_id: p.id, format: :json)
+      }
+    }
+
+    @screen.touch(:last_seen_at)
+
+    response.headers["X-Config-Version"] = @screen.config_version
+
+    render json: {
+      template: {
+        background_uri: @screen.template.image.attached? ? url_for(@screen.template.image) : nil
+      },
+      positions: positions
+    }
+  end
+
+  private
+  # Use callbacks to share common setup or constraints between actions.
+  def set_screen
+    @screen = Screen
+      .includes(:field_configs, template: [ :positions, { image_attachment: :blob } ])
+      .find(params[:id])
+  end
+end

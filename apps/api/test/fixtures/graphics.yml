@@ -1,0 +1,62 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  type: Graphic
+  name: MyString
+  duration: 1
+  start_time: <%= 1.hour.ago %>
+  end_time: <%= 1.hour.from_now %>
+  user: admin
+
+two:
+  type: Graphic
+  name: MyString
+  duration: 1
+  start_time: <%= 1.hour.ago %>
+  end_time: <%= 1.hour.from_now %>
+  user: admin
+
+e2e_graphic_1:
+  type: Graphic
+  name: Graphic 1 for system test
+  duration: 1
+  user: admin
+
+e2e_graphic_2:
+  type: Graphic
+  name: Graphic 2 for system test
+  duration: 1
+  user: admin
+
+# Test fixtures for scope testing
+active_graphic_no_times:
+  type: Graphic
+  name: "Always Active Graphic"
+  duration: 30
+  start_time:
+  end_time:
+  user: admin
+
+active_graphic_with_start:
+  type: Graphic
+  name: "Active Graphic with Start Time"
+  duration: 45
+  start_time: <%= 1.hour.ago %>
+  end_time:
+  user: admin
+
+expired_graphic:
+  type: Graphic
+  name: "Expired Graphic"
+  duration: 30
+  start_time: <%= 2.hours.ago %>
+  end_time: <%= 1.hour.ago %>
+  user: admin
+
+upcoming_graphic:
+  type: Graphic
+  name: "Upcoming Graphic"
+  duration: 30
+  start_time: <%= 1.hour.from_now %>
+  end_time: <%= 2.hours.from_now %>
+  user: admin

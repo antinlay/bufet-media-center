@@ -52,6 +52,9 @@ pnpm --filter @bufet/player start   # Expo dev server
 2. Login with demo credentials:
    - Email: `demo@bufet.com`
    - Password: `password123`
+3. Mock admin login (existing, password is not changed by code):
+   - Email: `admin@bufet.local`
+   - Password: `password 123`
 
 ### Step 2: Pair Device
 1. Run Player app on Android device/emulator:

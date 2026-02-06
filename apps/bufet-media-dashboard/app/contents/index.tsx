@@ -16,7 +16,6 @@ export default function ContentsScreen() {
   useProtectedRoute();
   const queryClient = useQueryClient();
   const contentsQuery = useQuery({ queryKey: ['contents'], queryFn: () => apiClient.getContents() });
-  const feedsQuery = useQuery({ queryKey: ['feeds'], queryFn: () => apiClient.getFeeds() });
 
   const [type, setType] = useState('Graphic');
   const [name, setName] = useState('');
@@ -26,7 +25,6 @@ export default function ContentsScreen() {
   const [renderAs, setRenderAs] = useState('plaintext');
   const [format, setFormat] = useState('h:mm a');
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-  const [feedId, setFeedId] = useState<number | null>(null);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -34,7 +32,6 @@ export default function ContentsScreen() {
         type,
         name: name || undefined,
         duration: duration ? Number(duration) : undefined,
-        feed_ids: feedId ? [feedId] : undefined,
       };
 
       if (type === 'Video') payload.url = url || undefined;
@@ -60,12 +57,11 @@ export default function ContentsScreen() {
   });
 
   const contents = contentsQuery.data ?? [];
-  const feeds = (feedsQuery.data ?? []).filter((feed) => feed.config?.kind !== 'playlist');
 
   return (
     <AppShell
       title="Материалы"
-      subtitle="Загружайте изображения, видео и текстовые блоки, распределяя по лентам."
+      subtitle="Загружайте изображения, видео и текстовые блоки для плейлистов."
       actions={
         <Button mode="contained" onPress={() => queryClient.invalidateQueries({ queryKey: ['contents'] })}>
           Обновить
@@ -82,22 +78,6 @@ export default function ContentsScreen() {
               <RadioButton.Item label="Видео" value="Video" labelStyle={styles.radioLabel} />
               <RadioButton.Item label="Текст" value="RichText" labelStyle={styles.radioLabel} />
               <RadioButton.Item label="Часы" value="Clock" labelStyle={styles.radioLabel} />
-            </RadioButton.Group>
-          </View>
-          <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Лента</Text>
-            <RadioButton.Group
-              value={feedId ? String(feedId) : ''}
-              onValueChange={(value) => setFeedId(Number(value))}
-            >
-              {feeds.map((feed) => (
-                <RadioButton.Item
-                  key={feed.id}
-                  label={feed.name}
-                  value={String(feed.id)}
-                  labelStyle={styles.radioLabel}
-                />
-              ))}
             </RadioButton.Group>
           </View>
         </View>

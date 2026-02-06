@@ -1,0 +1,42 @@
+# frozen_string_literal: true
+
+class Clock < Content
+  store_accessor :config, :format
+
+  # Common format presets for the admin UI
+  def self.formats
+    {
+      time_12h: "h:mm a",          # 12:34 PM
+      date_short: "EEE, MMM d",    # Mon, Dec 21
+      datetime_short: "h:mm a, MMM d"  # 2:34 PM, Dec 21
+    }
+  end
+
+  validates :format, presence: true
+  validate :format_must_be_string
+
+  # The clock has its own policy class since
+  # most users should not create clocks.
+  def self.policy_class
+    ClockPolicy
+  end
+
+  def as_json(options = {})
+    super(options).merge({
+      format: format
+    })
+  end
+
+  # Returns true if the format is a custom format (not one of the presets)
+  def custom_format?
+    format.present? && !self.class.formats.values.include?(format)
+  end
+
+  private
+
+  def format_must_be_string
+    return if format.nil? || format.is_a?(String)
+
+    errors.add(:format, "must be a string, not an array or other type")
+  end
+end

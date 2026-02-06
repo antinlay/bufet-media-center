@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { BrandCard } from '../../components/BrandCard';
 import { EmptyState } from '../../components/EmptyState';
 import { Section } from '../../components/Section';
 import { apiClient } from '../../lib/api';
+import { buildGroupTree, flattenGroupTree } from '../../lib/groupTree';
 import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 
@@ -17,72 +18,58 @@ export default function ScreensScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });
-  const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: () => apiClient.getTemplates() });
   const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
-  const feedsQuery = useQuery({ queryKey: ['feeds'], queryFn: () => apiClient.getFeeds() });
-  const fieldsQuery = useQuery({ queryKey: ['fields'], queryFn: () => apiClient.getFields() });
 
   const [name, setName] = useState('');
-  const [templateId, setTemplateId] = useState<number | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
-  const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
-  const [subscriptionFieldId, setSubscriptionFieldId] = useState<number | null>(null);
-  const [subscriptionFeedId, setSubscriptionFeedId] = useState<number | null>(null);
+  const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () => {
-      if (!templateId || !groupId || !name) {
-        throw new Error('Заполните имя, организацию и макет');
+      if (!groupId || !name) {
+        throw new Error('Заполните имя и выберите организацию в фильтре');
       }
-      return apiClient.createScreen({ name, template_id: templateId, group_id: groupId });
+      return apiClient.createScreen({ name, group_id: groupId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['screens'] });
       setName('');
     },
-  });
-
-  const subscriptionsQuery = useQuery({
-    queryKey: ['screen-subscriptions', selectedScreenId],
-    queryFn: () => apiClient.getScreenSubscriptions(selectedScreenId as number),
-    enabled: Boolean(selectedScreenId),
-  });
-
-  const assignSubscriptionMutation = useMutation({
-    mutationFn: () => {
-      if (!selectedScreenId || !subscriptionFieldId || !subscriptionFeedId) {
-        throw new Error('Выберите экран, поле и фид');
-      }
-      return apiClient.createSubscription(selectedScreenId, {
-        field_id: subscriptionFieldId,
-        feed_id: subscriptionFeedId,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['screen-subscriptions', selectedScreenId] });
-      setSubscriptionFieldId(null);
-      setSubscriptionFeedId(null);
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Не удалось создать экран';
+      Alert.alert('Ошибка', message);
     },
   });
 
-  const removeSubscriptionMutation = useMutation({
-    mutationFn: (id: number) => apiClient.deleteSubscription(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['screen-subscriptions', selectedScreenId] });
-    },
-  });
-
-  const screens = screensQuery.data ?? [];
-  const templates = templatesQuery.data ?? [];
+  const screens = useMemo(() => screensQuery.data ?? [], [screensQuery.data]);
   const adminGroups = (groupsQuery.data ?? []).filter((group) => !group.systemGroup);
-  const feeds = (feedsQuery.data ?? []).filter((feed) => feed.config?.kind !== 'playlist');
-  const fields = fieldsQuery.data ?? [];
-  const subscriptions = subscriptionsQuery.data ?? [];
+  const groupTree = buildGroupTree(adminGroups);
+  const flatGroups = flattenGroupTree(groupTree);
+
+  useEffect(() => {
+    if (filterGroupId === null && flatGroups.length) {
+      setFilterGroupId(flatGroups[0].group.id);
+    }
+  }, [flatGroups, filterGroupId]);
+
+  useEffect(() => {
+    setGroupId(filterGroupId);
+  }, [filterGroupId]);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiClient.deleteScreen(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['screens'] }),
+  });
+
+  const filteredScreens = useMemo(() => {
+    if (!filterGroupId) return screens;
+    return screens.filter((screen) => screen.groupId === filterGroupId);
+  }, [filterGroupId, screens]);
 
   return (
     <AppShell
       title="Экраны"
-      subtitle="Экран = точка показа. Назначайте организации, макеты и отслеживайте онлайн‑статусы."
+      subtitle="Экран = точка показа. Назначайте организации и отслеживайте онлайн‑статусы."
       actions={
         <View style={styles.headerActions}>
           <Button mode="outlined" onPress={() => router.push('/scan')}>
@@ -102,157 +89,67 @@ export default function ScreensScreen() {
           onChangeText={setName}
           style={styles.input}
         />
-        <View style={styles.selectorRow}>
-          <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Организация</Text>
-            <RadioButton.Group
-              onValueChange={(value) => setGroupId(Number(value))}
-              value={groupId ? String(groupId) : ''}
-            >
-              {adminGroups.map((group) => (
-                <RadioButton.Item
-                  key={group.id}
-                  label={group.name}
-                  value={String(group.id)}
-                  labelStyle={styles.radioLabel}
-                />
-              ))}
-            </RadioButton.Group>
-          </View>
-          <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Макет</Text>
-            <RadioButton.Group
-              onValueChange={(value) => setTemplateId(Number(value))}
-              value={templateId ? String(templateId) : ''}
-            >
-              {templates.map((template) => (
-                <RadioButton.Item
-                  key={template.id}
-                  label={template.name}
-                  value={String(template.id)}
-                  labelStyle={styles.radioLabel}
-                />
-              ))}
-            </RadioButton.Group>
-          </View>
-        </View>
         <Button mode="contained" onPress={() => createMutation.mutate()} loading={createMutation.isPending}>
           Создать экран
         </Button>
       </BrandCard>
 
       <BrandCard>
-        <Text style={styles.cardTitle}>Назначить ленту экрану</Text>
-        <View style={styles.selectorRow}>
-          <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Экран</Text>
-            <RadioButton.Group
-              onValueChange={(value) => setSelectedScreenId(Number(value))}
-              value={selectedScreenId ? String(selectedScreenId) : ''}
-            >
-              {screens.map((screen) => (
-                <RadioButton.Item
-                  key={screen.id}
-                  label={screen.name}
-                  value={String(screen.id)}
-                  labelStyle={styles.radioLabel}
-                />
-              ))}
-            </RadioButton.Group>
-          </View>
-          <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Поле</Text>
-            <RadioButton.Group
-              onValueChange={(value) => setSubscriptionFieldId(Number(value))}
-              value={subscriptionFieldId ? String(subscriptionFieldId) : ''}
-            >
-              {fields.map((field) => (
-                <RadioButton.Item
-                  key={field.id}
-                  label={field.name}
-                  value={String(field.id)}
-                  labelStyle={styles.radioLabel}
-                />
-              ))}
-            </RadioButton.Group>
-          </View>
-          <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Лента</Text>
-            <RadioButton.Group
-              onValueChange={(value) => setSubscriptionFeedId(Number(value))}
-              value={subscriptionFeedId ? String(subscriptionFeedId) : ''}
-            >
-              {feeds.map((feed) => (
-                <RadioButton.Item
-                  key={feed.id}
-                  label={feed.name}
-                  value={String(feed.id)}
-                  labelStyle={styles.radioLabel}
-                />
-              ))}
-            </RadioButton.Group>
-          </View>
-        </View>
-        <Button
-          mode="contained"
-          onPress={() => assignSubscriptionMutation.mutate()}
-          loading={assignSubscriptionMutation.isPending}
+        <Text style={styles.cardTitle}>Фильтр по организациям</Text>
+        <RadioButton.Group
+          onValueChange={(value) => setFilterGroupId(value === 'all' ? null : Number(value))}
+          value={filterGroupId ? String(filterGroupId) : 'all'}
         >
-          Подключить ленту
-        </Button>
+          <RadioButton.Item label="Все" value="all" labelStyle={styles.radioLabel} />
+          {flatGroups.map(({ group, depth }) => (
+            <RadioButton.Item
+              key={group.id}
+              label={`${'—'.repeat(depth)} ${group.name}`}
+              value={String(group.id)}
+              labelStyle={styles.radioLabel}
+            />
+          ))}
+        </RadioButton.Group>
       </BrandCard>
 
-      <Section title="Подключенные ленты" subtitle="Что именно показывается на выбранном экране.">
-        {!selectedScreenId ? (
-          <EmptyState title="Экран не выбран" subtitle="Выберите экран, чтобы увидеть его ленты." />
-        ) : subscriptions.length === 0 ? (
-          <EmptyState title="Лент нет" subtitle="Подключите ленты, чтобы экран начал показывать материалы." />
-        ) : (
-          subscriptions.map((subscription) => (
-            <BrandCard key={subscription.id}>
-              <View style={styles.screenRow}>
-                <View>
-                  <Text style={styles.screenName}>{subscription.feed?.name ?? `Лента #${subscription.feedId}`}</Text>
-                  <Text style={styles.screenMeta}>Поле: {subscription.field?.name ?? `#${subscription.fieldId}`}</Text>
-                  <Text style={styles.screenMeta}>Вес: {subscription.weight}</Text>
-                </View>
-                <Button
-                  mode="text"
-                  onPress={() => removeSubscriptionMutation.mutate(subscription.id)}
-                  loading={removeSubscriptionMutation.isPending}
-                >
-                  Удалить
-                </Button>
-              </View>
-            </BrandCard>
-          ))
-        )}
-      </Section>
-
       <Section title="Список экранов" subtitle="Подключенные и ожидающие привязку устройства.">
-        {screens.length === 0 ? (
+        {filteredScreens.length === 0 ? (
           <EmptyState title="Экранов нет" subtitle="Создайте первый экран и привяжите устройство через QR." />
         ) : (
-          screens.map((screen) => (
-            <BrandCard key={screen.id}>
-              <View style={styles.screenRow}>
-                <View>
-                  <Text style={styles.screenName}>{screen.name}</Text>
-                  <Text style={styles.screenMeta}>Организация: {screen.group?.name ?? screen.groupId}</Text>
-                  <Text style={styles.screenMeta}>Макет: {screen.template?.name ?? screen.templateId}</Text>
-                </View>
-                <View style={styles.screenActions}>
-                  <View style={statusPillStyle(screen.online)}>
-                    <Text style={styles.statusText}>{screen.online ? 'ONLINE' : 'OFFLINE'}</Text>
+          filteredScreens.map((screen) => (
+            <Pressable key={screen.id} onPress={() => router.push(`/screens/${screen.id}`)}>
+              <BrandCard>
+                <View style={styles.screenRow}>
+                  <View>
+                    <Text style={styles.screenName}>{screen.name}</Text>
+                    <Text style={styles.screenMeta}>Организация: {screen.group?.name ?? screen.groupId}</Text>
                   </View>
-                  <Button mode="text" onPress={() => router.push(`/screens/${screen.id}`)}>
-                    Открыть
-                  </Button>
+                  <View style={styles.screenActions}>
+                    <View style={statusPillStyle(screen.online)}>
+                      <Text style={styles.statusText}>{screen.online ? 'ONLINE' : 'OFFLINE'}</Text>
+                    </View>
+                    <Button
+                      mode="text"
+                      onPress={() => {
+                        Alert.alert('Удалить экран?', screen.name, [
+                          { text: 'Отмена', style: 'cancel' },
+                          {
+                            text: 'Удалить',
+                            style: 'destructive',
+                            onPress: () => deleteMutation.mutate(screen.id),
+                          },
+                        ]);
+                      }}
+                      loading={deleteMutation.isPending}
+                    >
+                      Удалить
+                    </Button>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.screenMeta}>Последний сигнал: {screen.lastSeenAt ?? 'Нет данных'}</Text>
-              <Text style={styles.screenMeta}>Device ID: {screen.device?.deviceId ?? 'Не привязан'}</Text>
-            </BrandCard>
+                <Text style={styles.screenMeta}>Последний сигнал: {screen.lastSeenAt ?? 'Нет данных'}</Text>
+                <Text style={styles.screenMeta}>Device ID: {screen.device?.deviceId ?? 'Не привязан'}</Text>
+              </BrandCard>
+            </Pressable>
           ))
         )}
       </Section>

@@ -1,0 +1,44 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+video_youtube:
+  type: Video
+  name: Sample YouTube Video
+  duration: 60
+  start_time: 2024-12-24 03:10:59
+  end_time: 2024-12-24 03:10:59
+  config: {'url': 'https://www.youtube.com/watch?v=eT4OAYjzV-s'}
+  user: admin
+
+video_youtube_short:
+  type: Video
+  name: Sample YouTube Short
+  duration: 30
+  start_time: 2024-12-24 03:10:59
+  end_time: 2024-12-24 03:10:59
+  config: {'url': 'https://www.youtube.com/shorts/JnKnz3QaYhA'}
+  user: admin
+
+video_two:
+  type: Video
+  name: MyString
+  duration: 1
+  start_time: 2024-12-24 03:10:59
+  end_time: 2024-12-24 03:10:59
+  config: {'url': 'https://www.youtube.com/watch?v=UlXEL5hg7E8'}
+  user: admin
+
+video_vimeo:
+  type: Video
+  name: Sample Vimeo Video
+  start_time: 2024-12-24 03:10:59
+  end_time: 2024-12-24 03:10:59
+  config: {'url': 'https://vimeo.com/897211169'}
+  user: admin
+
+video_tiktok:
+  type: Video
+  name: Sample TikTok Video
+  start_time: 2024-12-24 03:10:59
+  end_time: 2024-12-24 03:10:59
+  config: {'url': 'https://www.tiktok.com/@scout2015/video/6718335390845095173'}
+  user: admin

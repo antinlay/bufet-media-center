@@ -119,6 +119,9 @@ docker-compose down
 2. Register a new account or login with demo credentials:
    - Email: `demo@bufet.com`
    - Password: `password123`
+3. Mock admin login (existing, password is not changed by code):
+   - Email: `admin@bufet.local`
+   - Password: `password 123`
 
 ### 2. Pair Device
 1. Run the Player app on Android device or emulator

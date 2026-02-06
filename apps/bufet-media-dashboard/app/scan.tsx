@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { Button, HelperText, Text } from 'react-native-paper';
+import { Button, HelperText, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../components/TextInput';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { AppShell } from '../components/AppShell';
 import { BrandCard } from '../components/BrandCard';
 import { EmptyState } from '../components/EmptyState';
 import { apiClient } from '../lib/api';
+import { buildGroupTree, flattenGroupTree } from '../lib/groupTree';
 import { brandFonts, palette } from '../theme';
 import { useProtectedRoute } from '../hooks/useProtectedRoute';
 
@@ -38,28 +39,35 @@ export default function ScanScreen() {
   const [manualCode, setManualCode] = useState('');
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanned, setScanned] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
   const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
-  const templatesQuery = useQuery({ queryKey: ['templates'], queryFn: () => apiClient.getTemplates() });
 
   const availableGroups = useMemo(
     () => (groupsQuery.data ?? []).filter((group) => !group.systemGroup),
     [groupsQuery.data],
   );
-  const availableTemplates = templatesQuery.data ?? [];
+  const flatGroups = useMemo(
+    () => flattenGroupTree(buildGroupTree(availableGroups)),
+    [availableGroups],
+  );
+  useEffect(() => {
+    if (!selectedGroupId && flatGroups.length) {
+      setSelectedGroupId(flatGroups[0].group.id);
+    }
+  }, [flatGroups, selectedGroupId]);
 
   const pairMutation = useMutation({
     mutationFn: (code: string) => {
       if (!availableGroups.length) throw new Error('Сначала создайте организацию');
-      if (!availableTemplates.length) throw new Error('Сначала создайте макет');
+      if (!selectedGroupId) throw new Error('Выберите организацию');
 
       const name = `Экран ${code}`;
       return apiClient.pairDevice({
         code,
         screen: {
           name,
-          group_id: availableGroups[0].id,
-          template_id: availableTemplates[0].id,
+          group_id: selectedGroupId,
         },
       });
     },
@@ -97,23 +105,24 @@ export default function ScanScreen() {
     );
   }
 
-  if (!availableTemplates.length) {
-    return (
-      <AppShell title="Сканирование QR" subtitle="Нужен макет для создания экрана.">
-        <EmptyState
-          title="Нет макетов"
-          subtitle="Создайте макет, чтобы привязать первый экран."
-          actionLabel="Создать макет"
-          onAction={() => router.push('/templates')}
-        />
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell title="Сканирование QR" subtitle="Наведите камеру на код с плеера.">
       <BrandCard>
         <Text style={styles.cardTitle}>Сканировать</Text>
+        <Text style={styles.cardText}>Организация для нового экрана</Text>
+        <RadioButton.Group
+          value={selectedGroupId ? String(selectedGroupId) : ''}
+          onValueChange={(value) => setSelectedGroupId(Number(value))}
+        >
+          {flatGroups.map(({ group, depth }) => (
+            <RadioButton.Item
+              key={group.id}
+              label={`${'—'.repeat(depth)} ${group.name}`}
+              value={String(group.id)}
+              labelStyle={styles.radioLabel}
+            />
+          ))}
+        </RadioButton.Group>
         {!permission ? (
           <Text style={styles.cardText}>Запрашиваем доступ к камере…</Text>
         ) : !permission.granted ? (
@@ -166,6 +175,10 @@ const styles = StyleSheet.create({
     fontFamily: brandFonts.body,
     color: palette.slate,
     marginBottom: 8,
+  },
+  radioLabel: {
+    fontFamily: brandFonts.body,
+    fontSize: 14,
   },
   cameraContainer: {
     width: '100%',
