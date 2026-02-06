@@ -1,4 +1,5 @@
 node_modules
+.expo/
 dist
 build
 .env
@@ -18,3 +19,4 @@ coverage
 *~
 *.key
 _external/
+deploy/home-windows/.env
