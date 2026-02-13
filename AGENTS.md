@@ -36,3 +36,21 @@
 ## Security & Configuration
 - Never commit secrets; use the `.env` files and keep keys out of version control. Rotate JWT/DB creds before production deploys.
 - For local dev, seed data includes demo credentials (`demo@bufet.com` / `password123`); change or remove in production environments.
+
+## Общие принципы (всегда)
+- Пиши кратко. Без длинных планов и теории.
+- Сначала найди точные файлы/места изменений, затем делай минимальный diff.
+- После правок: запусти проверку (build/test/линт) подходящим инструментом и исправь ошибки до финала.
+- В ответе: (1) что изменено и где, (2) как проверить (команда), (3) важные риски/краевые кейсы — только если есть.
+
+## Использование MCP (источники истины)
+- Apple API (Swift/SwiftUI/UIKit/HIG): использовать appledeepdoc.
+- OpenAI API / Agents / MCP: использовать openaiDeveloperDocs.
+- Сторонние библиотеки и SDK (Firebase/Starscream/RevenueCat/Alamofire и т.д.), а также JS/TS экосистема: использовать context7.
+- Сборка/тесты Xcode: использовать MCP сервер xcode (Xcode Tools через xcrun mcpbridge). Требование: Xcode должен быть запущен.
+- Не отвечать по памяти, если доступна официальная документация через MCP.
+
+## React Native режим (проект apps/player)
+- Использовать современный RN/Expo стек, TypeScript.
+- Документация RN/Expo/библиотек: через context7.
+- Команды проверки: ориентируйся на package.json (lint/test/typecheck) и используй их.
