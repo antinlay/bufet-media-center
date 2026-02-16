@@ -2,6 +2,11 @@
 
 # If running the rails server then create or migrate existing database
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
+  if [ -z "${SECRET_KEY_BASE}" ]; then
+    echo "ERROR: Missing SECRET_KEY_BASE for production startup. Set it in Railway service Variables."
+    exit 1
+  fi
+
   ./bin/rails db:prepare
 fi
 
