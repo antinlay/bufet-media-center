@@ -1,4 +1,4 @@
-# Welcome to your Expo app 👋
+# BUFET Media Player (Expo)
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
@@ -7,14 +7,23 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 1. Install dependencies
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. Start the app
 
    ```bash
-   npx expo start
+   pnpm start
    ```
+
+## Production API domain
+
+Set API endpoint via env (see `.env.production.example`):
+
+```bash
+EXPO_PUBLIC_API_URL=https://bufet-media-center-production.up.railway.app
+EXPO_PUBLIC_ALLOW_HTTP=0
+```
 
 In the output, you'll find options to open the app in a
 
