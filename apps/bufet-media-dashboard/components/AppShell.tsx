@@ -107,15 +107,16 @@ export function AppShell({
           </View>
         ) : null}
 
-        <View style={headerStyle}>
-          <View>
-            <Text style={styles.title}>{title}</Text>
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={headerStyle}>
+            <View>
+              <Text style={styles.title}>{title}</Text>
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            </View>
+            {actions ? <View style={headerActionsStyle}>{actions}</View> : null}
           </View>
-          {actions ? <View style={headerActionsStyle}>{actions}</View> : null}
-        </View>
-
-        <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
+          {children}
+        </ScrollView>
       </View>
     </View>
   );
