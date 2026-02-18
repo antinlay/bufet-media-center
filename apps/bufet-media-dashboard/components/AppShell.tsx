@@ -88,7 +88,7 @@ export function AppShell({
         ) : null}
 
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
+          <View>
             <Text style={styles.title}>{title}</Text>
             {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           </View>
@@ -215,16 +215,15 @@ const styles = StyleSheet.create({
     color: palette.ink,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     marginBottom: 16,
-    gap: 16,
+    gap: 12,
   },
   headerActions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     gap: 8,
-    flexWrap: 'wrap',
   },
   title: {
     fontFamily: brandFonts.heading,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
@@ -13,8 +13,32 @@ import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 
+function useIsMobile() {
+  const getInitialWidth = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 980;
+    }
+    return false;
+  };
+  
+  const [isMobile, setIsMobile] = useState(getInitialWidth);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 980);
+    };
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+}
+
 export default function GroupsScreen() {
   useProtectedRoute();
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
@@ -46,9 +70,13 @@ export default function GroupsScreen() {
   });
 
   const groupRowStyle = {
-    flexDirection: 'column' as const,
-    alignItems: 'flex-start' as const,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: 8,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+      alignItems: 'flex-start' as const,
+    }),
   };
 
   return (

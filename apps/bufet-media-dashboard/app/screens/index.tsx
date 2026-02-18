@@ -13,8 +13,32 @@ import { buildGroupTree, flattenGroupTree } from '../../lib/groupTree';
 import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 
+function useIsMobile() {
+  const getInitialWidth = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 980;
+    }
+    return false;
+  };
+  
+  const [isMobile, setIsMobile] = useState(getInitialWidth);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 980);
+    };
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+}
+
 export default function ScreensScreen() {
   useProtectedRoute();
+  const isMobile = useIsMobile();
   const router = useRouter();
   const queryClient = useQueryClient();
   const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });
@@ -67,15 +91,25 @@ export default function ScreensScreen() {
   }, [filterGroupId, screens]);
 
   const screenRowStyle = {
-    flexDirection: 'column' as const,
-    alignItems: 'flex-start' as const,
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     gap: 12,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+      alignItems: 'flex-start' as const,
+    }),
   };
 
   const screenActionsStyle = {
-    alignItems: 'flex-start' as const,
-    flexDirection: 'column' as const,
+    alignItems: 'flex-end' as const,
     gap: 6,
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+      alignItems: 'flex-start' as const,
+    }),
   };
 
   return (
