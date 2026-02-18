@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, Dimensions, Pressable, StyleSheet, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,10 +13,21 @@ import { buildGroupTree, flattenGroupTree } from '../../lib/groupTree';
 import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => Dimensions.get('window').width < 600);
+
+  useEffect(() => {
+    const handler = ({ window }: { window: { width: number } }) => setIsMobile(window.width < 600);
+    const subscription = Dimensions.addEventListener('change', handler);
+    return () => subscription.remove();
+  }, []);
+
+  return isMobile;
+}
+
 export default function ScreensScreen() {
   useProtectedRoute();
-  const { width } = useWindowDimensions();
-  const isMobile = width < 600;
+  const isMobile = useIsMobile();
   const router = useRouter();
   const queryClient = useQueryClient();
   const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });

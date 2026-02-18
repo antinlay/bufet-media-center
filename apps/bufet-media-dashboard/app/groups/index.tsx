@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Dimensions, StyleSheet, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,10 +13,21 @@ import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => Dimensions.get('window').width < 600);
+
+  useEffect(() => {
+    const handler = ({ window }: { window: { width: number } }) => setIsMobile(window.width < 600);
+    const subscription = Dimensions.addEventListener('change', handler);
+    return () => subscription.remove();
+  }, []);
+
+  return isMobile;
+}
+
 export default function GroupsScreen() {
   useProtectedRoute();
-  const { width } = useWindowDimensions();
-  const isMobile = width < 600;
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
