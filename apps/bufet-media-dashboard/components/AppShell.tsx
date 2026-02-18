@@ -1,9 +1,20 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Text, TouchableRipple, IconButton } from 'react-native-paper';
 import { usePathname, useRouter } from 'expo-router';
 import { palette, brandFonts } from '../theme';
 import { useAuth } from '../providers/AuthProvider';
+
+function useIsMobile() {
+  const { width } = useWindowDimensions();
+  const [isMobile, setIsMobile] = useState(width < 600);
+
+  useEffect(() => {
+    setIsMobile(width < 600);
+  }, [width]);
+
+  return isMobile;
+}
 
 const navItems = [
   { label: 'Обзор', href: '/' },
@@ -27,9 +38,18 @@ export function AppShell({
 }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 980;
+  const isMobile = useIsMobile();
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+
+  const headerStyle = isMobile
+    ? styles.headerMobile
+    : styles.headerDesktop;
+
+  const headerActionsStyle = isMobile
+    ? styles.headerActionsMobile
+    : styles.headerActionsDesktop;
 
   return (
     <View style={styles.container}>
@@ -87,12 +107,12 @@ export function AppShell({
           </View>
         ) : null}
 
-        <View style={styles.header}>
+        <View style={headerStyle}>
           <View>
             <Text style={styles.title}>{title}</Text>
             {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           </View>
-          {actions ? <View style={styles.headerActions}>{actions}</View> : null}
+          {actions ? <View style={headerActionsStyle}>{actions}</View> : null}
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
@@ -214,13 +234,25 @@ const styles = StyleSheet.create({
   topNavTextActive: {
     color: palette.ink,
   },
-  header: {
+  headerDesktop: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 16,
+  },
+  headerMobile: {
     flexDirection: 'column',
     alignItems: 'flex-start',
     marginBottom: 16,
     gap: 12,
   },
-  headerActions: {
+  headerActionsDesktop: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  headerActionsMobile: {
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 8,
