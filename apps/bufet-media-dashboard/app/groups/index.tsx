@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +15,8 @@ import { useAuth } from '../../providers/AuthProvider';
 
 export default function GroupsScreen() {
   useProtectedRoute();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
@@ -44,6 +46,16 @@ export default function GroupsScreen() {
     mutationFn: (id: number) => apiClient.deleteGroup(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['groups'] }),
   });
+
+  const groupRowStyle = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+      alignItems: 'flex-start' as const,
+    }),
+  };
 
   return (
     <AppShell
@@ -99,6 +111,7 @@ export default function GroupsScreen() {
                   },
                 ]);
               }}
+              groupRowStyle={groupRowStyle}
             />
           ))
         )}
@@ -112,16 +125,18 @@ function GroupNodeCard({
   depth,
   canDelete,
   onDelete,
+  groupRowStyle,
 }: {
   node: GroupNode;
   depth: number;
   canDelete: boolean;
   onDelete: (groupId: number, name: string) => void;
+  groupRowStyle: object;
 }) {
   return (
     <>
       <BrandCard style={{ marginLeft: depth * 16 }}>
-        <View style={styles.groupRow}>
+        <View style={groupRowStyle}>
           <View style={{ flex: 1 }}>
             <Text style={styles.groupName}>{node.group.name}</Text>
             <Text style={styles.groupMeta}>{node.group.description ?? 'Описание не задано'}</Text>
@@ -140,6 +155,7 @@ function GroupNodeCard({
           depth={depth + 1}
           canDelete={canDelete}
           onDelete={onDelete}
+          groupRowStyle={groupRowStyle}
         />
       ))}
     </>

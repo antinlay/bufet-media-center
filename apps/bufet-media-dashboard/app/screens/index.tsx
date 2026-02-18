@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +15,8 @@ import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 
 export default function ScreensScreen() {
   useProtectedRoute();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
   const router = useRouter();
   const queryClient = useQueryClient();
   const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });
@@ -65,6 +67,28 @@ export default function ScreensScreen() {
     if (!filterGroupId) return screens;
     return screens.filter((screen) => screen.groupId === filterGroupId);
   }, [filterGroupId, screens]);
+
+  const screenRowStyle = {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+      alignItems: 'flex-start' as const,
+    }),
+  };
+
+  const screenActionsStyle = {
+    alignItems: 'flex-end' as const,
+    gap: 6,
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+      alignItems: 'flex-start' as const,
+    }),
+  };
 
   return (
     <AppShell
@@ -119,12 +143,12 @@ export default function ScreensScreen() {
           filteredScreens.map((screen) => (
             <Pressable key={screen.id} onPress={() => router.push(`/screens/${screen.id}`)}>
               <BrandCard>
-                <View style={styles.screenRow}>
+                <View style={screenRowStyle}>
                   <View>
                     <Text style={styles.screenName}>{screen.name}</Text>
                     <Text style={styles.screenMeta}>Организация: {screen.group?.name ?? screen.groupId}</Text>
                   </View>
-                  <View style={styles.screenActions}>
+                  <View style={screenActionsStyle}>
                     <View style={statusPillStyle(screen.online)}>
                       <Text style={styles.statusText}>{screen.online ? 'ONLINE' : 'OFFLINE'}</Text>
                     </View>
@@ -191,16 +215,6 @@ const styles = StyleSheet.create({
   radioLabel: {
     fontFamily: brandFonts.body,
     fontSize: 14,
-  },
-  screenRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  screenActions: {
-    alignItems: 'flex-end',
-    gap: 6,
   },
   screenName: {
     fontFamily: brandFonts.heading,

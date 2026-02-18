@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../../components/AppShell';
@@ -14,6 +14,8 @@ import { useAuth } from '../../providers/AuthProvider';
 
 export default function UsersScreen() {
   useProtectedRoute();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: () => apiClient.getUsers() });
@@ -72,6 +74,32 @@ export default function UsersScreen() {
     mutationFn: (id: number) => apiClient.deleteUser(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
+
+  const userActionsStyle = {
+    marginTop: 8,
+    flexDirection: 'row' as const,
+    justifyContent: 'flex-end' as const,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+      alignItems: 'stretch' as const,
+    }),
+  };
+
+  const membershipActionsStyle = {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 8,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+    }),
+  };
+
+  const membershipRowStyle = {
+    gap: 6,
+    ...(isMobile && {
+      flexDirection: 'column' as const,
+    }),
+  };
 
   return (
     <AppShell
@@ -143,7 +171,7 @@ export default function UsersScreen() {
               <Text style={styles.userName}>{user.firstName ?? 'Пользователь'} {user.lastName ?? ''}</Text>
               <Text style={styles.userMeta}>{user.email}</Text>
               {currentUser?.systemAdmin ? (
-                <View style={styles.userActions}>
+                <View style={userActionsStyle}>
                   <Button
                     mode="text"
                     disabled={currentUser?.id === user.id}
@@ -168,9 +196,9 @@ export default function UsersScreen() {
                   <Text style={styles.userMeta}>Организации: —</Text>
                 ) : (
                   (user.groups ?? []).map((group) => (
-                    <View key={`${user.id}-${group.id}`} style={styles.membershipRow}>
+                    <View key={`${user.id}-${group.id}`} style={membershipRowStyle}>
                       <Text style={styles.userMeta}>{group.name} ({group.role})</Text>
-                      <View style={styles.membershipActions}>
+                      <View style={membershipActionsStyle}>
                         <Button
                           mode="text"
                           disabled={!group.membershipId}
