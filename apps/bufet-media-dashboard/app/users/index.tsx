@@ -12,32 +12,8 @@ import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 
-function useIsMobile() {
-  const getInitialWidth = () => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 980;
-    }
-    return false;
-  };
-  
-  const [isMobile, setIsMobile] = useState(getInitialWidth);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 980);
-    };
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  return isMobile;
-}
-
 export default function UsersScreen() {
   useProtectedRoute();
-  const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: () => apiClient.getUsers() });
@@ -99,28 +75,18 @@ export default function UsersScreen() {
 
   const userActionsStyle = {
     marginTop: 8,
-    flexDirection: 'row' as const,
-    justifyContent: 'flex-end' as const,
-    ...(isMobile && {
-      flexDirection: 'column' as const,
-      alignItems: 'stretch' as const,
-    }),
+    flexDirection: 'column' as const,
+    alignItems: 'stretch' as const,
   };
 
   const membershipActionsStyle = {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'column' as const,
     gap: 8,
-    ...(isMobile && {
-      flexDirection: 'column' as const,
-    }),
   };
 
   const membershipRowStyle = {
     gap: 6,
-    ...(isMobile && {
-      flexDirection: 'column' as const,
-    }),
+    flexDirection: 'column' as const,
   };
 
   return (
