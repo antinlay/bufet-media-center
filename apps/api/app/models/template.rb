@@ -7,6 +7,8 @@ class Template < ApplicationRecord
   has_many :screens
 
   def self.default
-    Setting[:default_template_id].presence && find_by(id: Setting[:default_template_id]) || first
+    default_id = Setting[:default_template_id]
+    return find_by(id: default_id) if default_id.present?
+    first
   end
 end
