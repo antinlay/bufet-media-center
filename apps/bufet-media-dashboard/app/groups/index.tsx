@@ -16,7 +16,7 @@ import { useAuth } from '../../providers/AuthProvider';
 function useIsMobile() {
   const getInitialWidth = () => {
     if (typeof window !== 'undefined') {
-      return window.innerWidth < 600;
+      return window.innerWidth < 980;
     }
     return false;
   };
@@ -27,7 +27,7 @@ function useIsMobile() {
     if (typeof window === 'undefined') return;
     
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 600);
+      setIsMobile(window.innerWidth < 980);
     };
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
