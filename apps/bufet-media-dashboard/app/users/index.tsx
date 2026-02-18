@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Dimensions, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../../components/AppShell';
@@ -13,12 +13,23 @@ import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => Dimensions.get('window').width < 600);
+  const getInitialWidth = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 600;
+    }
+    return false;
+  };
+  
+  const [isMobile, setIsMobile] = useState(getInitialWidth);
 
   useEffect(() => {
-    const handler = ({ window }: { window: { width: number } }) => setIsMobile(window.width < 600);
-    const subscription = Dimensions.addEventListener('change', handler);
-    return () => subscription.remove();
+    if (typeof window === 'undefined') return;
+    
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 600);
+    };
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   return isMobile;
