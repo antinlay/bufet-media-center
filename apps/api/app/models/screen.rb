@@ -5,6 +5,7 @@ class Screen < ApplicationRecord
   has_many :subscriptions, dependent: :destroy
   has_many :field_configs, dependent: :destroy
   has_one :player_device, dependent: :nullify
+  has_many :player_pairings, dependent: :destroy
 
   accepts_nested_attributes_for :field_configs,
     allow_destroy: true,

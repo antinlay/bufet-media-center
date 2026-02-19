@@ -83,6 +83,9 @@ export default function ScreensScreen() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiClient.deleteScreen(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['screens'] }),
+    onError: (error: Error) => {
+      Alert.alert('Ошибка', error.message || 'Не удалось удалить экран');
+    },
   });
 
   const filteredScreens = useMemo(() => {
@@ -176,16 +179,7 @@ export default function ScreensScreen() {
                     </View>
                     <Button
                       mode="text"
-                      onPress={() => {
-                        Alert.alert('Удалить экран?', screen.name, [
-                          { text: 'Отмена', style: 'cancel' },
-                          {
-                            text: 'Удалить',
-                            style: 'destructive',
-                            onPress: () => deleteMutation.mutate(screen.id),
-                          },
-                        ]);
-                      }}
+                      onPress={() => deleteMutation.mutate(screen.id)}
                       loading={deleteMutation.isPending}
                     >
                       Удалить
