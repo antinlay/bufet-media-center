@@ -4,8 +4,8 @@
 
 ```bash
 pnpm install
-pnpm --filter @bufet/api db:migrate && pnpm --filter @bufet/api db:seed  # если нужно поднять данные
-pnpm --filter @bufet/api dev  # API на 3001
+cd ../api && bundle install && yarn install && bin/rails db:migrate && bin/rails db:seed  # если нужно поднять данные
+cd ../api && bin/dev  # API на 3000
 
 pnpm --filter @bufet/dashboard start -- --web  # dashboard (web)
 ```
@@ -13,7 +13,7 @@ pnpm --filter @bufet/dashboard start -- --web  # dashboard (web)
 Переменные окружения:
 
 ```
-EXPO_PUBLIC_API_URL=http://localhost:3001
+EXPO_PUBLIC_API_URL=http://localhost:3000
 ```
 
 Production (Railway API):
@@ -26,6 +26,13 @@ EXPO_PUBLIC_API_URL=https://bufet-media-center-production.up.railway.app
 
 ```bash
 pnpm --filter @bufet/dashboard build:web
+```
+
+Native-проект dashboard работает в режиме CNG и не хранится в Git. Для локальной iOS-сборки Expo создаст его из `app.json`:
+
+```bash
+npx expo prebuild --platform ios
+npx expo run:ios
 ```
 
 Деплой dashboard на Railway:

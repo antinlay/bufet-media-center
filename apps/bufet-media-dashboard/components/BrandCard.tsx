@@ -13,9 +13,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: palette.fog,
-    shadowColor: '#1C1206',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    boxShadow: '0 6px 12px rgba(28, 18, 6, 0.08)',
   },
 });

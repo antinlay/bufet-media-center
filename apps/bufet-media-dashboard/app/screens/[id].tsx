@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Image, Linking, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Button, IconButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import * as DocumentPicker from 'expo-document-picker';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import { AppShell } from '../../components/AppShell';
 import { BrandCard } from '../../components/BrandCard';
@@ -69,54 +70,41 @@ export default function ScreenEditor() {
 
   const screenQuery = useQuery({
     queryKey: ['screen', screenId],
-    queryFn: () => apiClient.getScreen(screenId as number),
+    queryFn: ({ signal }) => apiClient.getScreen(screenId as number, signal),
     enabled: Boolean(screenId),
   });
 
   const playlistQuery = useQuery({
     queryKey: ['screen-playlist', screenId],
-    queryFn: () => apiClient.getScreenPlaylist(screenId as number),
+    queryFn: ({ signal }) => apiClient.getScreenPlaylist(screenId as number, signal),
     enabled: Boolean(screenId),
   });
 
   const contentsQuery = useQuery({
     queryKey: ['contents'],
-    queryFn: () => apiClient.getContents(),
+    queryFn: ({ signal }) => apiClient.getContents(signal),
   });
 
   const screensListQuery = useQuery({
     queryKey: ['screens'],
-    queryFn: () => apiClient.getScreens(),
+    queryFn: ({ signal }) => apiClient.getScreens(signal),
   });
 
-  const [screenName, setScreenName] = useState('');
+  const [screenNameOverride, setScreenNameOverride] = useState<string | null>(null);
   const [form, setForm] = useState<MediaFormState>(emptyForm);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [durations, setDurations] = useState<Record<number, string>>({});
-  const [orderedItems, setOrderedItems] = useState<ConcertoPlaylistItem[]>([]);
+  const [durationOverrides, setDurationOverrides] = useState<Record<number, string>>({});
+  const [orderedItemsOverride, setOrderedItemsOverride] = useState<ConcertoPlaylistItem[] | null>(null);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [sourceScreenId, setSourceScreenId] = useState<number | null>(null);
   const [imageSizes, setImageSizes] = useState<Record<number, { width: number; height: number }>>({});
 
-  useEffect(() => {
-    if (screenQuery.data?.name) {
-      setScreenName(screenQuery.data.name);
-    }
-  }, [screenQuery.data?.name]);
-
-  useEffect(() => {
-    const items = [...(playlistQuery.data?.items ?? [])].sort((a, b) => {
-      const aPos = a.position ?? a.order ?? 0;
-      const bPos = b.position ?? b.order ?? 0;
+  const screenName = screenNameOverride ?? screenQuery.data?.name ?? '';
+  const serverItems = useMemo(() => [...(playlistQuery.data?.items ?? [])].sort((a, b) => {
+      const aPos = a.position ?? 0;
+      const bPos = b.position ?? 0;
       return aPos - bPos;
-    });
-    setOrderedItems(items);
-    const map: Record<number, string> = {};
-    items.forEach((item) => {
-      map[item.submissionId] = String(item.duration ?? 15);
-    });
-    setDurations(map);
-  }, [playlistQuery.data?.items]);
+    }), [playlistQuery.data?.items]);
 
   const updateScreenMutation = useMutation({
     mutationFn: () => apiClient.updateScreen(screenId as number, { name: screenName }),
@@ -167,7 +155,7 @@ export default function ScreenEditor() {
       let contentId = existing?.id;
 
       if (!contentId) {
-        const payload: any = {
+        const payload: Parameters<typeof apiClient.createContent>[0] = {
           type: form.type,
           name: form.name || undefined,
           duration: form.type === 'Graphic' && form.duration ? Number(form.duration) : undefined,
@@ -223,7 +211,7 @@ export default function ScreenEditor() {
     },
   });
 
-  const items = orderedItems;
+  const items = orderedItemsOverride ?? serverItems;
 
   const headerSubtitle = useMemo(() => {
     if (screenQuery.isLoading) return 'Загружаем экран…';
@@ -283,7 +271,7 @@ export default function ScreenEditor() {
         <TextInput
           label="Экран"
           value={screenName}
-          onChangeText={setScreenName}
+          onChangeText={setScreenNameOverride}
           onBlur={() => {
             if (screenName && screenName !== screenQuery.data?.name) {
               updateScreenMutation.mutate();
@@ -318,23 +306,21 @@ export default function ScreenEditor() {
                 position: index,
                 order: index,
               }));
-              setOrderedItems(normalized);
+              setOrderedItemsOverride(normalized);
               reorderMutation.mutate(normalized.map((item) => item.submissionId));
             }}
             renderItem={({ item, drag, isActive }) => {
               const content = contentById[item.contentId ?? -1];
               const mediaUrl =
                 resolveMediaUrl(item.mediaUrl) ??
-                resolveMediaUrl((item as any).url) ??
                 resolveMediaUrl(content?.url) ??
                 resolveMediaUrl(content?.imageUrl);
               const thumbnailUrl =
                 resolveMediaUrl(item.thumbnailUrl) ??
-                resolveMediaUrl((item as any).thumbnailUrl) ??
                 resolveMediaUrl(content?.thumbnailUrl) ??
                 resolveMediaUrl(content?.imageUrl) ??
                 mediaUrl;
-              const durationValue = durations[item.submissionId] ?? String(item.duration ?? 15);
+              const durationValue = durationOverrides[item.submissionId] ?? String(item.duration ?? 15);
               const isVideo = item.type === 'Video';
 
               return (
@@ -349,7 +335,7 @@ export default function ScreenEditor() {
                     onPress={() => {
                       if (isVideo) {
                         if (mediaUrl) {
-                          if (Platform.OS === 'web') {
+                          if (process.env.EXPO_OS === 'web') {
                             window.open(mediaUrl, '_blank');
                           } else {
                             Linking.openURL(mediaUrl);
@@ -379,7 +365,7 @@ export default function ScreenEditor() {
                         label="Длительность (сек)"
                         value={durationValue}
                         keyboardType="numeric"
-                        onChangeText={(value) => setDurations((prev) => ({ ...prev, [item.submissionId]: value }))}
+                        onChangeText={(value) => setDurationOverrides((prev) => ({ ...prev, [item.submissionId]: value }))}
                         onBlur={() => {
                           const parsed = Number(durationValue);
                           if (Number.isFinite(parsed) && parsed > 0 && parsed !== item.duration) {
@@ -407,7 +393,7 @@ export default function ScreenEditor() {
 
       <Modal visible={Boolean(previewUrl)} transparent animationType="fade">
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
-          {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} resizeMode="contain" /> : null}
+          {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} contentFit="contain" /> : null}
         </Pressable>
       </Modal>
 
@@ -451,7 +437,7 @@ export default function ScreenEditor() {
                 </Button>
               </View>
             ) : null}
-            {form.error ? <Text style={styles.errorText}>{form.error}</Text> : null}
+            {form.error ? <Text style={styles.errorText} selectable>{form.error}</Text> : null}
             {form.mode === 'upload' ? (
               <>
                 <TextInput
@@ -525,13 +511,6 @@ export default function ScreenEditor() {
                     renderItem={({ item }) => {
                       const selected = form.selectedContentId === item.id;
                       const thumb = item.thumbnailUrl ?? item.imageUrl ?? item.url ?? undefined;
-                      if (item.type === 'Graphic' && thumb && !imageSizes[item.id]) {
-                        Image.getSize(
-                          resolveMediaUrl(thumb) ?? thumb,
-                          (width, height) => setImageSizes((prev) => ({ ...prev, [item.id]: { width, height } })),
-                          () => undefined,
-                        );
-                      }
                       const badgeText =
                         item.type === 'Video'
                           ? formatDuration(item.duration)
@@ -555,7 +534,14 @@ export default function ScreenEditor() {
                           style={[styles.libraryCard, selected && styles.libraryCardSelected]}
                         >
                           {thumb ? (
-                            <Image source={{ uri: resolveMediaUrl(thumb) }} style={styles.libraryThumb} />
+                            <Image
+                              source={{ uri: resolveMediaUrl(thumb) }}
+                              style={styles.libraryThumb}
+                              onLoad={({ source: { width, height } }) => {
+                                if (item.type !== 'Graphic') return;
+                                setImageSizes((prev) => prev[item.id] ? prev : { ...prev, [item.id]: { width, height } });
+                              }}
+                            />
                           ) : (
                             <View style={styles.libraryThumbPlaceholder}>
                               <MaterialCommunityIcons

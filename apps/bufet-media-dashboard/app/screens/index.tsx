@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,43 +13,21 @@ import { buildGroupTree, flattenGroupTree } from '../../lib/groupTree';
 import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 
-function useIsMobile() {
-  const getInitialWidth = () => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 980;
-    }
-    return false;
-  };
-  
-  const [isMobile, setIsMobile] = useState(getInitialWidth);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 980);
-    };
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  return isMobile;
-}
-
 export default function ScreensScreen() {
   useProtectedRoute();
-  const isMobile = useIsMobile();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 980;
   const router = useRouter();
   const queryClient = useQueryClient();
-  const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
+  const screensQuery = useQuery({ queryKey: ['screens'], queryFn: ({ signal }) => apiClient.getScreens(signal) });
+  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
 
   const [name, setName] = useState('');
-  const [groupId, setGroupId] = useState<number | null>(null);
-  const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
+  const [filterGroupId, setFilterGroupId] = useState<number | 'all' | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () => {
+      const groupId = filterGroupId === 'all' ? null : filterGroupId ?? flatGroups[0]?.group.id ?? null;
       if (!groupId || !name) {
         throw new Error('Заполните имя и выберите организацию в фильтре');
       }
@@ -70,15 +48,7 @@ export default function ScreensScreen() {
   const groupTree = buildGroupTree(adminGroups);
   const flatGroups = flattenGroupTree(groupTree);
 
-  useEffect(() => {
-    if (filterGroupId === null && flatGroups.length) {
-      setFilterGroupId(flatGroups[0].group.id);
-    }
-  }, [flatGroups, filterGroupId]);
-
-  useEffect(() => {
-    setGroupId(filterGroupId);
-  }, [filterGroupId]);
+  const selectedFilterGroupId = filterGroupId === 'all' ? null : filterGroupId ?? flatGroups[0]?.group.id ?? null;
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiClient.deleteScreen(id),
@@ -88,10 +58,9 @@ export default function ScreensScreen() {
     },
   });
 
-  const filteredScreens = useMemo(() => {
-    if (!filterGroupId) return screens;
-    return screens.filter((screen) => screen.groupId === filterGroupId);
-  }, [filterGroupId, screens]);
+  const filteredScreens = selectedFilterGroupId
+    ? screens.filter((screen) => screen.groupId === selectedFilterGroupId)
+    : screens;
 
   const screenRowStyle = {
     flexDirection: 'row' as const,
@@ -146,8 +115,8 @@ export default function ScreensScreen() {
       <BrandCard>
         <Text style={styles.cardTitle}>Фильтр по организациям</Text>
         <RadioButton.Group
-          onValueChange={(value) => setFilterGroupId(value === 'all' ? null : Number(value))}
-          value={filterGroupId ? String(filterGroupId) : 'all'}
+          onValueChange={(value) => setFilterGroupId(value === 'all' ? 'all' : Number(value))}
+          value={selectedFilterGroupId ? String(selectedFilterGroupId) : 'all'}
         >
           <RadioButton.Item label="Все" value="all" labelStyle={styles.radioLabel} />
           {flatGroups.map(({ group, depth }) => (
@@ -187,7 +156,7 @@ export default function ScreensScreen() {
                   </View>
                 </View>
                 <Text style={styles.screenMeta}>Последний сигнал: {screen.lastSeenAt ?? 'Нет данных'}</Text>
-                <Text style={styles.screenMeta}>Device ID: {screen.device?.deviceId ?? 'Не привязан'}</Text>
+                <Text style={styles.screenMeta} selectable>Device ID: {screen.device?.deviceId ?? 'Не привязан'}</Text>
               </BrandCard>
             </Pressable>
           ))

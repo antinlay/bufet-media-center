@@ -16,9 +16,9 @@ export default function DashboardHome() {
   useProtectedRoute();
   const router = useRouter();
 
-  const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
-  const contentsQuery = useQuery({ queryKey: ['contents'], queryFn: () => apiClient.getContents() });
+  const screensQuery = useQuery({ queryKey: ['screens'], queryFn: ({ signal }) => apiClient.getScreens(signal) });
+  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
+  const contentsQuery = useQuery({ queryKey: ['contents'], queryFn: ({ signal }) => apiClient.getContents(signal) });
 
   const screens = screensQuery.data ?? [];
   const onlineScreens = screens.filter((screen) => screen.online).length;

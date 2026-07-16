@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function persistAuth(data: ConcertoAuthResponse) {
   apiClient.setToken(data.access_token);
-  return saveAuth({ token: data.access_token, user: data.user as any });
+  return saveAuth({ token: data.access_token, user: data.user });
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

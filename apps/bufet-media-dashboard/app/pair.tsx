@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Button, HelperText, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../components/TextInput';
@@ -16,7 +16,7 @@ export default function PairScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const initialCode = typeof params.code === 'string' ? params.code : '';
-  const [code, setCode] = useState(initialCode);
+  const [code, setCode] = useState(() => initialCode);
   const [error, setError] = useState<string | null>(null);
   const [pairMode, setPairMode] = useState<'new' | 'existing'>('new');
   const [name, setName] = useState('');
@@ -24,12 +24,8 @@ export default function PairScreen() {
   const [screenId, setScreenId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  const screensQuery = useQuery({ queryKey: ['screens'], queryFn: () => apiClient.getScreens() });
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
-
-  useEffect(() => {
-    if (initialCode) setCode(initialCode);
-  }, [initialCode]);
+  const screensQuery = useQuery({ queryKey: ['screens'], queryFn: ({ signal }) => apiClient.getScreens(signal) });
+  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
 
   const availableGroups = useMemo(() => {
     return (groupsQuery.data ?? []).filter((group) => !group.systemGroup);
@@ -39,11 +35,7 @@ export default function PairScreen() {
     [availableGroups],
   );
 
-  useEffect(() => {
-    if (!groupId && flatGroups.length) {
-      setGroupId(flatGroups[0].group.id);
-    }
-  }, [flatGroups, groupId]);
+  const selectedGroupId = groupId ?? flatGroups[0]?.group.id ?? null;
 
   const pairMutation = useMutation({
     mutationFn: () => {
@@ -52,16 +44,16 @@ export default function PairScreen() {
         if (!screenId) throw new Error('Выберите экран');
         return apiClient.pairDevice({ code, screen_id: screenId });
       }
-      if (!name || !groupId) {
+      if (!name || !selectedGroupId) {
         throw new Error('Укажите имя и организацию');
       }
-      return apiClient.pairDevice({ code, screen: { name, group_id: groupId } });
+      return apiClient.pairDevice({ code, screen: { name, group_id: selectedGroupId } });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['screens'] });
       router.replace(`/screens/${data.screen.id}`);
     },
-    onError: (e: any) => setError(e?.message ?? 'Не удалось привязать устройство'),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : 'Не удалось привязать устройство'),
   });
 
   return (
@@ -93,7 +85,7 @@ export default function PairScreen() {
             <View style={styles.selector}>
               <Text style={styles.selectorTitle}>Организация</Text>
               <RadioButton.Group
-                value={groupId ? String(groupId) : ''}
+                value={selectedGroupId ? String(selectedGroupId) : ''}
                 onValueChange={(value) => setGroupId(Number(value))}
               >
                 {flatGroups.map(({ group, depth }) => (

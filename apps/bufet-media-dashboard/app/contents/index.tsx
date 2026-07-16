@@ -15,7 +15,7 @@ import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 export default function ContentsScreen() {
   useProtectedRoute();
   const queryClient = useQueryClient();
-  const contentsQuery = useQuery({ queryKey: ['contents'], queryFn: () => apiClient.getContents() });
+  const contentsQuery = useQuery({ queryKey: ['contents'], queryFn: ({ signal }) => apiClient.getContents(signal) });
 
   const [type, setType] = useState('Graphic');
   const [name, setName] = useState('');
@@ -28,7 +28,7 @@ export default function ContentsScreen() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const payload: any = {
+      const payload: Parameters<typeof apiClient.createContent>[0] = {
         type,
         name: name || undefined,
         duration: duration ? Number(duration) : undefined,

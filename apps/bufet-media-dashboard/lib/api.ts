@@ -14,10 +14,67 @@ import type {
   ConcertoUser,
 } from '@bufet/shared';
 import { z } from 'zod';
-import { Platform } from 'react-native';
 import type { PickedFile } from './upload';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const REQUEST_TIMEOUT_MS = 15_000;
+const UPLOAD_TIMEOUT_MS = 5 * 60_000;
+
+type RequestOptions = RequestInit & { timeoutMs?: number };
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: 'HTTP_ERROR' | 'NETWORK_ERROR' | 'TIMEOUT',
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function request(path: string, init: RequestOptions = {}): Promise<Response> {
+  const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchInit } = init;
+  const controller = new AbortController();
+  const callerSignal = fetchInit.signal;
+  const abortFromCaller = () => controller.abort();
+
+  if (callerSignal?.aborted) {
+    controller.abort();
+  } else {
+    callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
+  }
+
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(`${BASE_URL}${path}`, { ...fetchInit, signal: controller.signal });
+  } catch (error) {
+    if (callerSignal?.aborted) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('Сервер не ответил вовремя', 0, 'TIMEOUT');
+    }
+    throw new ApiError('Не удалось подключиться к серверу', 0, 'NETWORK_ERROR');
+  } finally {
+    clearTimeout(timeoutId);
+    callerSignal?.removeEventListener('abort', abortFromCaller);
+  }
+}
+
+function appendNativeFile(form: FormData, field: string, file: PickedFile) {
+  const nativeFile = { uri: file.uri, name: file.name, type: file.type } as unknown as Blob;
+  form.append(field, nativeFile, file.name);
+}
+
+async function readWebFile(file: PickedFile): Promise<Blob> {
+  const response = await fetch(file.uri);
+  if (!response.ok) {
+    throw new ApiError(`Не удалось прочитать файл ${file.name}`, response.status, 'HTTP_ERROR');
+  }
+  return response.blob();
+}
 
 const errorSchema = z.object({ message: z.string().optional(), error: z.string().optional() });
 
@@ -33,7 +90,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
     } catch (e) {
       // ignore
     }
-    throw new Error(message || 'Request failed');
+    throw new ApiError(message || 'Request failed', res.status, 'HTTP_ERROR');
   }
 
   if (res.status === 204) return undefined as unknown as T;
@@ -56,7 +113,7 @@ export class ApiClient {
 
   // Auth
   async login(email: string, password: string): Promise<ConcertoAuthResponse> {
-    const res = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+    const res = await request(`/api/v1/auth/login`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ email, password }),
@@ -65,7 +122,7 @@ export class ApiClient {
   }
 
   async register(firstName: string, lastName: string, email: string, password: string): Promise<ConcertoAuthResponse> {
-    const res = await fetch(`${BASE_URL}/api/v1/auth/register`, {
+    const res = await request(`/api/v1/auth/register`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ first_name: firstName, last_name: lastName, email, password }),
@@ -73,37 +130,41 @@ export class ApiClient {
     return handleResponse<ConcertoAuthResponse>(res);
   }
 
-  async me(): Promise<ConcertoUser> {
-    const res = await fetch(`${BASE_URL}/api/v1/auth/me`, {
+  async me(signal?: AbortSignal): Promise<ConcertoUser> {
+    const res = await request(`/api/v1/auth/me`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoUser>(res);
   }
 
   // Screens
-  async getScreens(): Promise<ConcertoScreen[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens`, {
+  async getScreens(signal?: AbortSignal): Promise<ConcertoScreen[]> {
+    const res = await request(`/api/v1/screens`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoScreen[]>(res);
   }
 
-  async getScreen(id: number): Promise<ConcertoScreen> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${id}`, {
+  async getScreen(id: number, signal?: AbortSignal): Promise<ConcertoScreen> {
+    const res = await request(`/api/v1/screens/${id}`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoScreen>(res);
   }
 
-  async getScreenSubscriptions(screenId: number): Promise<ConcertoSubscription[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/subscriptions`, {
+  async getScreenSubscriptions(screenId: number, signal?: AbortSignal): Promise<ConcertoSubscription[]> {
+    const res = await request(`/api/v1/screens/${screenId}/subscriptions`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoSubscription[]>(res);
   }
 
   async createScreen(payload: { name: string; group_id: number; template_id?: number | null }): Promise<ConcertoScreen> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens`, {
+    const res = await request(`/api/v1/screens`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ screen: payload }),
@@ -112,7 +173,7 @@ export class ApiClient {
   }
 
   async createSubscription(screenId: number, payload: { feed_id: number; field_id: number; weight?: number }): Promise<ConcertoSubscription> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/subscriptions`, {
+    const res = await request(`/api/v1/screens/${screenId}/subscriptions`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ subscription: payload }),
@@ -121,7 +182,7 @@ export class ApiClient {
   }
 
   async deleteSubscription(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/subscriptions/${id}`, {
+    const res = await request(`/api/v1/subscriptions/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -129,7 +190,7 @@ export class ApiClient {
   }
 
   async updateScreen(id: number, payload: Partial<{ name: string; group_id: number; template_id: number }>): Promise<ConcertoScreen> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${id}`, {
+    const res = await request(`/api/v1/screens/${id}`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ screen: payload }),
@@ -138,9 +199,10 @@ export class ApiClient {
   }
 
   // Screen playlist
-  async getScreenPlaylist(id: number): Promise<ConcertoPlaylistResponse> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${id}/playlist`, {
+  async getScreenPlaylist(id: number, signal?: AbortSignal): Promise<ConcertoPlaylistResponse> {
+    const res = await request(`/api/v1/screens/${id}/playlist`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoPlaylistResponse>(res);
   }
@@ -156,25 +218,24 @@ export class ApiClient {
         if (value === undefined || value === null) return;
         form.append(key, String(value));
       });
-      if (Platform.OS === 'web') {
-        const response = await fetch(file.uri);
-        const blob = await response.blob();
+      if (process.env.EXPO_OS === 'web') {
+        const blob = await readWebFile(file);
         const field = payload.type === 'Video' ? 'video' : 'image';
         form.append(field, blob, file.name);
       } else {
         const field = payload.type === 'Video' ? 'video' : 'image';
-        // @ts-ignore FormData file type compatibility for RN
-        form.append(field, { uri: file.uri, name: file.name, type: file.type });
+        appendNativeFile(form, field, file);
       }
-      const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist`, {
+      const res = await request(`/api/v1/screens/${screenId}/playlist`, {
         method: 'POST',
         headers: this.headers(false),
         body: form,
+        timeoutMs: UPLOAD_TIMEOUT_MS,
       });
       return handleResponse<ConcertoPlaylistItem>(res);
     }
 
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist`, {
+    const res = await request(`/api/v1/screens/${screenId}/playlist`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify(payload),
@@ -187,7 +248,7 @@ export class ApiClient {
     contentId: number,
     duration?: number,
   ): Promise<ConcertoPlaylistItem> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist`, {
+    const res = await request(`/api/v1/screens/${screenId}/playlist`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ content_id: contentId, duration }),
@@ -196,7 +257,7 @@ export class ApiClient {
   }
 
   async applyScreenPlaylist(screenId: number, sourceScreenId: number): Promise<ConcertoPlaylistResponse> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist/apply`, {
+    const res = await request(`/api/v1/screens/${screenId}/playlist/apply`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ source_screen_id: sourceScreenId }),
@@ -209,7 +270,7 @@ export class ApiClient {
     submissionId: number,
     payload: { name?: string; duration?: number; url?: string },
   ): Promise<ConcertoPlaylistItem> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist/${submissionId}`, {
+    const res = await request(`/api/v1/screens/${screenId}/playlist/${submissionId}`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify(payload),
@@ -218,7 +279,7 @@ export class ApiClient {
   }
 
   async reorderScreenPlaylist(screenId: number, submissionIds: number[]): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist/reorder`, {
+    const res = await request(`/api/v1/screens/${screenId}/playlist/reorder`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ submission_ids: submissionIds }),
@@ -227,7 +288,7 @@ export class ApiClient {
   }
 
   async deleteScreenPlaylistItem(screenId: number, submissionId: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${screenId}/playlist/${submissionId}`, {
+    const res = await request(`/api/v1/screens/${screenId}/playlist/${submissionId}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -235,7 +296,7 @@ export class ApiClient {
   }
 
   async deleteScreen(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/screens/${id}`, {
+    const res = await request(`/api/v1/screens/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -243,22 +304,24 @@ export class ApiClient {
   }
 
   // Templates
-  async getTemplates(): Promise<ConcertoTemplate[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/templates`, {
+  async getTemplates(signal?: AbortSignal): Promise<ConcertoTemplate[]> {
+    const res = await request(`/api/v1/templates`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoTemplate[]>(res);
   }
 
-  async getFields(): Promise<ConcertoField[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/fields`, {
+  async getFields(signal?: AbortSignal): Promise<ConcertoField[]> {
+    const res = await request(`/api/v1/fields`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoField[]>(res);
   }
 
   async createTemplate(payload: { name: string; author?: string | null }): Promise<ConcertoTemplate> {
-    const res = await fetch(`${BASE_URL}/api/v1/templates`, {
+    const res = await request(`/api/v1/templates`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ template: payload }),
@@ -267,7 +330,7 @@ export class ApiClient {
   }
 
   async updateTemplate(id: number, payload: Partial<{ name: string; author?: string | null }>): Promise<ConcertoTemplate> {
-    const res = await fetch(`${BASE_URL}/api/v1/templates/${id}`, {
+    const res = await request(`/api/v1/templates/${id}`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ template: payload }),
@@ -276,7 +339,7 @@ export class ApiClient {
   }
 
   async deleteTemplate(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/templates/${id}`, {
+    const res = await request(`/api/v1/templates/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -284,9 +347,10 @@ export class ApiClient {
   }
 
   // Feeds
-  async getFeeds(): Promise<ConcertoFeed[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/feeds`, {
+  async getFeeds(signal?: AbortSignal): Promise<ConcertoFeed[]> {
+    const res = await request(`/api/v1/feeds`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoFeed[]>(res);
   }
@@ -299,7 +363,7 @@ export class ApiClient {
     url?: string;
     formatter?: string;
   }): Promise<ConcertoFeed> {
-    const res = await fetch(`${BASE_URL}/api/v1/feeds`, {
+    const res = await request(`/api/v1/feeds`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ feed: payload }),
@@ -315,7 +379,7 @@ export class ApiClient {
     url?: string;
     formatter?: string;
   }>): Promise<ConcertoFeed> {
-    const res = await fetch(`${BASE_URL}/api/v1/feeds/${id}`, {
+    const res = await request(`/api/v1/feeds/${id}`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ feed: payload }),
@@ -324,7 +388,7 @@ export class ApiClient {
   }
 
   async deleteFeed(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/feeds/${id}`, {
+    const res = await request(`/api/v1/feeds/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -332,9 +396,10 @@ export class ApiClient {
   }
 
   // Content
-  async getContents(): Promise<ConcertoContent[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/contents`, {
+  async getContents(signal?: AbortSignal): Promise<ConcertoContent[]> {
+    const res = await request(`/api/v1/contents`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoContent[]>(res);
   }
@@ -361,25 +426,25 @@ export class ApiClient {
           form.append(key, String(value));
         }
       });
-      if (Platform.OS === 'web') {
-        const response = await fetch(file.uri);
-        const blob = await response.blob();
+      if (process.env.EXPO_OS === 'web') {
+        const blob = await readWebFile(file);
         const field = payload.type === 'Video' ? 'video' : 'image';
         form.append(field, blob, file.name);
       } else {
-        // @ts-ignore FormData file type compatibility for RN
         const field = payload.type === 'Video' ? 'video' : 'image';
-        form.append(field, { uri: file.uri, name: file.name, type: file.type });
+        const nativeFile = { uri: file.uri, name: file.name, type: file.type } as unknown as Blob;
+        form.append(field, nativeFile, file.name);
       }
-      const res = await fetch(`${BASE_URL}/api/v1/contents`, {
+      const res = await request(`/api/v1/contents`, {
         method: 'POST',
         headers: this.headers(false),
         body: form,
+        timeoutMs: UPLOAD_TIMEOUT_MS,
       });
       return handleResponse<ConcertoContent>(res);
     }
 
-    const res = await fetch(`${BASE_URL}/api/v1/contents`, {
+    const res = await request(`/api/v1/contents`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ content: payload }),
@@ -408,23 +473,22 @@ export class ApiClient {
           form.append(key, String(value));
         }
       });
-      if (Platform.OS === 'web') {
-        const response = await fetch(file.uri);
-        const blob = await response.blob();
+      if (process.env.EXPO_OS === 'web') {
+        const blob = await readWebFile(file);
         form.append('image', blob, file.name);
       } else {
-        // @ts-ignore FormData file type compatibility for RN
-        form.append('image', { uri: file.uri, name: file.name, type: file.type });
+        appendNativeFile(form, 'image', file);
       }
-      const res = await fetch(`${BASE_URL}/api/v1/contents/${id}`, {
+      const res = await request(`/api/v1/contents/${id}`, {
         method: 'PATCH',
         headers: this.headers(false),
         body: form,
+        timeoutMs: UPLOAD_TIMEOUT_MS,
       });
       return handleResponse<ConcertoContent>(res);
     }
 
-    const res = await fetch(`${BASE_URL}/api/v1/contents/${id}`, {
+    const res = await request(`/api/v1/contents/${id}`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ content: payload }),
@@ -433,7 +497,7 @@ export class ApiClient {
   }
 
   async deleteContent(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/contents/${id}`, {
+    const res = await request(`/api/v1/contents/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -441,15 +505,16 @@ export class ApiClient {
   }
 
   // Moderation (submissions)
-  async getSubmissions(): Promise<ConcertoSubmission[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/submissions`, {
+  async getSubmissions(signal?: AbortSignal): Promise<ConcertoSubmission[]> {
+    const res = await request(`/api/v1/submissions`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoSubmission[]>(res);
   }
 
   async createSubmission(payload: { content_id: number; feed_id: number }): Promise<ConcertoSubmission> {
-    const res = await fetch(`${BASE_URL}/api/v1/submissions`, {
+    const res = await request(`/api/v1/submissions`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ submission: payload }),
@@ -458,7 +523,7 @@ export class ApiClient {
   }
 
   async deleteSubmission(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/submissions/${id}`, {
+    const res = await request(`/api/v1/submissions/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -466,15 +531,16 @@ export class ApiClient {
   }
 
   // Groups & users
-  async getGroups(): Promise<ConcertoGroup[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/groups`, {
+  async getGroups(signal?: AbortSignal): Promise<ConcertoGroup[]> {
+    const res = await request(`/api/v1/groups`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoGroup[]>(res);
   }
 
   async createGroup(payload: { name: string; description?: string | null; parent_id?: number | null }): Promise<ConcertoGroup> {
-    const res = await fetch(`${BASE_URL}/api/v1/groups`, {
+    const res = await request(`/api/v1/groups`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ group: payload }),
@@ -483,7 +549,7 @@ export class ApiClient {
   }
 
   async updateGroup(id: number, payload: Partial<{ name: string; description?: string | null; parent_id?: number | null }>): Promise<ConcertoGroup> {
-    const res = await fetch(`${BASE_URL}/api/v1/groups/${id}`, {
+    const res = await request(`/api/v1/groups/${id}`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ group: payload }),
@@ -492,22 +558,23 @@ export class ApiClient {
   }
 
   async deleteGroup(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/groups/${id}`, {
+    const res = await request(`/api/v1/groups/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
     return handleResponse<void>(res);
   }
 
-  async getUsers(): Promise<ConcertoUser[]> {
-    const res = await fetch(`${BASE_URL}/api/v1/users`, {
+  async getUsers(signal?: AbortSignal): Promise<ConcertoUser[]> {
+    const res = await request(`/api/v1/users`, {
       headers: this.headers(false),
+      signal,
     });
     return handleResponse<ConcertoUser[]>(res);
   }
 
   async deleteUser(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/users/${id}`, {
+    const res = await request(`/api/v1/users/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -515,7 +582,7 @@ export class ApiClient {
   }
 
   async createMembership(payload: { user_id: number; group_id: number; role?: string }): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/groups/${payload.group_id}/memberships`, {
+    const res = await request(`/api/v1/groups/${payload.group_id}/memberships`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ membership: payload }),
@@ -524,7 +591,7 @@ export class ApiClient {
   }
 
   async updateMembership(id: number, payload: { role: string }): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/memberships/${id}`, {
+    const res = await request(`/api/v1/memberships/${id}`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ membership: payload }),
@@ -533,7 +600,7 @@ export class ApiClient {
   }
 
   async deleteMembership(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/api/v1/memberships/${id}`, {
+    const res = await request(`/api/v1/memberships/${id}`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -542,7 +609,7 @@ export class ApiClient {
 
   // Pairing
   async pairDevice(payload: { code: string; screen?: { name: string; group_id: number; template_id?: number | null }; screen_id?: number }): Promise<ConcertoPairingResult> {
-    const res = await fetch(`${BASE_URL}/api/v1/pairings`, {
+    const res = await request(`/api/v1/pairings`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify(payload),

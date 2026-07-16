@@ -1,7 +1,7 @@
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { View, StyleSheet } from 'react-native';
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { ScrollView, View, StyleSheet } from 'react-native';
 import { Text, Button, HelperText } from 'react-native-paper';
 import { TextInput } from '../components/TextInput';
 import { useAuth } from '../providers/AuthProvider';
@@ -30,7 +30,7 @@ export default function RegisterScreen() {
     formState: { errors, isSubmitting },
     control,
   } = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
+    resolver: standardSchemaResolver(registerSchema),
     defaultValues: { firstName: '', lastName: '', email: '', password: '' },
   });
 
@@ -39,13 +39,17 @@ export default function RegisterScreen() {
     try {
       await register(values.firstName, values.lastName, values.email, values.password);
       router.replace('/');
-    } catch (e: any) {
-      setError(e?.message ?? 'Ошибка регистрации');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Ошибка регистрации');
     }
   };
 
   return (
-    <View style={styles.page}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.page}
+    >
       <View style={styles.hero}>
         <Text style={styles.brand}>Буфет</Text>
         <Text style={styles.brandSub}>НОВЫЙ ЛИЧНЫЙ КАБИНЕТ</Text>
@@ -130,7 +134,7 @@ export default function RegisterScreen() {
         </HelperText>
 
         {error ? (
-          <HelperText type="error" visible>
+          <HelperText type="error" visible selectable>
             {error}
           </HelperText>
         ) : null}
@@ -140,13 +144,13 @@ export default function RegisterScreen() {
         </Button>
         <Button mode="text" onPress={() => router.push('/login')}>Уже есть аккаунт</Button>
       </BrandCard>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: palette.ink,
     justifyContent: 'center',
     padding: 24,

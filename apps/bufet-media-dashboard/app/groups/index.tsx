@@ -41,7 +41,7 @@ export default function GroupsScreen() {
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
+  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -67,6 +67,9 @@ export default function GroupsScreen() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiClient.deleteGroup(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['groups'] }),
+    onError: (error: Error) => {
+      Alert.alert('Ошибка', error.message || 'Не удалось удалить группу');
+    },
   });
 
   const groupRowStyle = {

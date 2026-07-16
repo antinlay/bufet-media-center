@@ -1,7 +1,7 @@
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { View, StyleSheet } from 'react-native';
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { ScrollView, View, StyleSheet } from 'react-native';
 import { Text, Button, HelperText } from 'react-native-paper';
 import { TextInput } from '../components/TextInput';
 import { useAuth } from '../providers/AuthProvider';
@@ -28,7 +28,7 @@ export default function LoginScreen() {
     formState: { errors, isSubmitting },
     control,
   } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+    resolver: standardSchemaResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
 
@@ -37,13 +37,17 @@ export default function LoginScreen() {
     try {
       await login(values.email, values.password);
       router.replace('/');
-    } catch (e: any) {
-      setError(e?.message ?? 'Ошибка авторизации');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Ошибка авторизации');
     }
   };
 
   return (
-    <View style={styles.page}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.page}
+    >
       <View style={styles.hero}>
         <Text style={styles.brand}>Буфет</Text>
         <Text style={styles.brandSub}>ЦИФРОВОЙ ШТАБ ЭКРАНОВ</Text>
@@ -92,7 +96,7 @@ export default function LoginScreen() {
         </HelperText>
 
         {error ? (
-          <HelperText type="error" visible>
+          <HelperText type="error" visible selectable>
             {error}
           </HelperText>
         ) : null}
@@ -102,13 +106,13 @@ export default function LoginScreen() {
         </Button>
         <Button mode="text" onPress={() => router.push('/register')}>Создать аккаунт</Button>
       </BrandCard>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: palette.ink,
     justifyContent: 'center',
     padding: 24,

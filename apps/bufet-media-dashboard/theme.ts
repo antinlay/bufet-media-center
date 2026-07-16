@@ -12,29 +12,7 @@ export const palette = {
 };
 
 const fontConfig = {
-  default: {
-    regular: {
-      fontFamily: 'Manrope-Regular',
-      fontWeight: '400',
-    },
-    medium: {
-      fontFamily: 'Manrope-SemiBold',
-      fontWeight: '600',
-    },
-    light: {
-      fontFamily: 'Manrope-Regular',
-      fontWeight: '400',
-    },
-    thin: {
-      fontFamily: 'Manrope-Regular',
-      fontWeight: '400',
-    },
-  },
-  customVariant: {
-    fontFamily: 'PlayfairDisplay-SemiBold',
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
+  fontFamily: 'Manrope-Regular',
 };
 
 const baseLight = {

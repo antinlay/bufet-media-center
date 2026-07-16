@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, RadioButton, Text } from 'react-native-paper';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../../components/AppShell';
@@ -12,36 +12,14 @@ import { brandFonts, palette } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 
-function useIsMobile() {
-  const getInitialWidth = () => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 980;
-    }
-    return false;
-  };
-  
-  const [isMobile, setIsMobile] = useState(getInitialWidth);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 980);
-    };
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  return isMobile;
-}
-
 export default function UsersScreen() {
   useProtectedRoute();
-  const isMobile = useIsMobile();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 980;
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: () => apiClient.getUsers() });
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
+  const usersQuery = useQuery({ queryKey: ['users'], queryFn: ({ signal }) => apiClient.getUsers(signal) });
+  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
 
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
   const availableGroups = (groupsQuery.data ?? []).filter((group) => !group.systemGroup);
@@ -51,26 +29,17 @@ export default function UsersScreen() {
   const [selectedRole, setSelectedRole] = useState<'member' | 'admin'>('member');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!selectedUserId && users.length) {
-      setSelectedUserId(users[0].id);
-    }
-  }, [selectedUserId, users]);
-
-  useEffect(() => {
-    if (!selectedGroupId && flatGroups.length) {
-      setSelectedGroupId(flatGroups[0].group.id);
-    }
-  }, [flatGroups, selectedGroupId]);
+  const effectiveSelectedUserId = selectedUserId ?? users[0]?.id ?? null;
+  const effectiveSelectedGroupId = selectedGroupId ?? flatGroups[0]?.group.id ?? null;
 
   const addMembershipMutation = useMutation({
     mutationFn: () => {
-      if (!selectedUserId || !selectedGroupId) {
+      if (!effectiveSelectedUserId || !effectiveSelectedGroupId) {
         throw new Error('Выберите пользователя и организацию');
       }
       return apiClient.createMembership({
-        user_id: selectedUserId,
-        group_id: selectedGroupId,
+        user_id: effectiveSelectedUserId,
+        group_id: effectiveSelectedGroupId,
         role: selectedRole,
       });
     },
@@ -78,7 +47,7 @@ export default function UsersScreen() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setError(null);
     },
-    onError: (e: any) => setError(e?.message ?? 'Не удалось добавить пользователя'),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : 'Не удалось добавить пользователя'),
   });
 
   const updateMembershipMutation = useMutation({
@@ -140,7 +109,7 @@ export default function UsersScreen() {
           <View style={styles.selector}>
             <Text style={styles.selectorTitle}>Пользователь</Text>
             <RadioButton.Group
-              value={selectedUserId ? String(selectedUserId) : ''}
+              value={effectiveSelectedUserId ? String(effectiveSelectedUserId) : ''}
               onValueChange={(value) => setSelectedUserId(Number(value))}
             >
               {users.map((user) => (
@@ -156,7 +125,7 @@ export default function UsersScreen() {
           <View style={styles.selector}>
             <Text style={styles.selectorTitle}>Организация</Text>
             <RadioButton.Group
-              value={selectedGroupId ? String(selectedGroupId) : ''}
+              value={effectiveSelectedGroupId ? String(effectiveSelectedGroupId) : ''}
               onValueChange={(value) => setSelectedGroupId(Number(value))}
             >
               {flatGroups.map(({ group, depth }) => (

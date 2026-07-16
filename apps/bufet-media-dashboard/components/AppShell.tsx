@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Text, TouchableRipple, IconButton } from 'react-native-paper';
 import { usePathname, useRouter } from 'expo-router';
@@ -7,13 +7,7 @@ import { useAuth } from '../providers/AuthProvider';
 
 function useIsMobile() {
   const { width } = useWindowDimensions();
-  const [isMobile, setIsMobile] = useState(width < 600);
-
-  useEffect(() => {
-    setIsMobile(width < 600);
-  }, [width]);
-
-  return isMobile;
+  return width < 600;
 }
 
 const navItems = [
@@ -23,7 +17,7 @@ const navItems = [
   { label: 'Организации', href: '/groups' },
   { label: 'Пользователи', href: '/users' },
   { label: 'Привязка', href: '/pair' },
-];
+] as const;
 
 export function AppShell({
   title,
@@ -107,7 +101,7 @@ export function AppShell({
           </View>
         ) : null}
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
           <View style={headerStyle}>
             <View>
               <Text style={styles.title}>{title}</Text>

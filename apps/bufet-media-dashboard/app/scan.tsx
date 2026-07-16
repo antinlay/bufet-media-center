@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../components/TextInput';
 import { useRouter } from 'expo-router';
@@ -41,7 +41,7 @@ export default function ScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: () => apiClient.getGroups() });
+  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
 
   const availableGroups = useMemo(
     () => (groupsQuery.data ?? []).filter((group) => !group.systemGroup),
@@ -51,23 +51,19 @@ export default function ScanScreen() {
     () => flattenGroupTree(buildGroupTree(availableGroups)),
     [availableGroups],
   );
-  useEffect(() => {
-    if (!selectedGroupId && flatGroups.length) {
-      setSelectedGroupId(flatGroups[0].group.id);
-    }
-  }, [flatGroups, selectedGroupId]);
+  const effectiveSelectedGroupId = selectedGroupId ?? flatGroups[0]?.group.id ?? null;
 
   const pairMutation = useMutation({
     mutationFn: (code: string) => {
       if (!availableGroups.length) throw new Error('Сначала создайте организацию');
-      if (!selectedGroupId) throw new Error('Выберите организацию');
+      if (!effectiveSelectedGroupId) throw new Error('Выберите организацию');
 
       const name = `Экран ${code}`;
       return apiClient.pairDevice({
         code,
         screen: {
           name,
-          group_id: selectedGroupId,
+          group_id: effectiveSelectedGroupId,
         },
       });
     },
@@ -111,7 +107,7 @@ export default function ScanScreen() {
         <Text style={styles.cardTitle}>Сканировать</Text>
         <Text style={styles.cardText}>Организация для нового экрана</Text>
         <RadioButton.Group
-          value={selectedGroupId ? String(selectedGroupId) : ''}
+                value={effectiveSelectedGroupId ? String(effectiveSelectedGroupId) : ''}
           onValueChange={(value) => setSelectedGroupId(Number(value))}
         >
           {flatGroups.map(({ group, depth }) => (
@@ -156,7 +152,7 @@ export default function ScanScreen() {
           Привязать вручную
         </Button>
         {scanError ? <HelperText type="error">{scanError}</HelperText> : null}
-        {Platform.OS === 'web' ? (
+        {process.env.EXPO_OS === 'web' ? (
           <HelperText type="info">На web доступ к камере работает только по HTTPS или на localhost.</HelperText>
         ) : null}
       </BrandCard>

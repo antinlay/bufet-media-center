@@ -1,11 +1,10 @@
-import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import type { ConcertoUser } from '@bufet/shared';
 
 const TOKEN_KEY = 'bufet_dash_token';
 const USER_KEY = 'bufet_dash_user';
 
-const isWeb = Platform.OS === 'web';
+const isWeb = process.env.EXPO_OS === 'web';
 
 const getLocalStorage = () => {
   if (isWeb && typeof window !== 'undefined' && window.localStorage) {
