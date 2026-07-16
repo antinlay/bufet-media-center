@@ -104,7 +104,7 @@ export const BootstrapResponseSchema = z.union([
       playlist: z.object({
         items: z.array(PlaylistItemSchema),
       }),
-      settings: z.record(z.any()).optional(),
+      settings: z.record(z.string(), z.unknown()).optional(),
     }),
   }),
 ]);
@@ -123,7 +123,7 @@ export const DeviceConfigResponseSchema = z.object({
   playlist: z.object({
     items: z.array(PlaylistItemSchema),
   }),
-  settings: z.record(z.any()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
 });
 
 // Concerto API (Rails)
@@ -186,7 +186,7 @@ export const ConcertoFeedSchema = z.object({
   description: z.string().nullable().optional(),
   type: z.string(),
   groupId: z.number(),
-  config: z.record(z.any()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
@@ -266,7 +266,7 @@ export const ConcertoMembershipSchema = z.object({
   userId: z.number(),
   groupId: z.number(),
   role: z.string(),
-  user: z.any().optional(),
+  user: z.unknown().optional(),
   group: ConcertoGroupSchema.optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),

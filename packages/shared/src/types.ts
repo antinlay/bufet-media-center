@@ -38,6 +38,7 @@ export interface PlaylistItem {
   type: 'IMAGE' | 'VIDEO';
   url: string;
   durationSeconds?: number | null;
+  thumbnailUrl?: string | null;
   order: number;
   createdAt: Date;
   updatedAt: Date;

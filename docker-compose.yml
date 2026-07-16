@@ -37,17 +37,18 @@ services:
 
   dashboard:
     build:
-      context: ./apps/dashboard
+      context: ./apps/bufet-media-dashboard
       dockerfile: Dockerfile
     container_name: bufet-dashboard
     environment:
-      VITE_API_URL: http://localhost:3001
+      EXPO_PUBLIC_API_URL: http://localhost:3001
+      PORT: 8080
     ports:
-      - "3000:3000"
+      - "3000:8080"
     depends_on:
       - api
     volumes:
-      - ./apps/dashboard:/app
+      - ./apps/bufet-media-dashboard:/app
       - /app/node_modules
     networks:
       - bufet-network
