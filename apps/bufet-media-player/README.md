@@ -23,6 +23,7 @@ Set API endpoint via env (see `.env.production.example`):
 ```bash
 EXPO_PUBLIC_API_URL=https://bufet-media-center-production.up.railway.app
 EXPO_PUBLIC_ALLOW_HTTP=0
+EXPO_PUBLIC_DISCOVERY_PORTS=443,80,3000
 ```
 
 In the output, you'll find options to open the app in a
@@ -39,7 +40,7 @@ You can start developing by editing the files inside the **app** directory. This
 When you're ready, run:
 
 ```bash
-npm run reset-project
+pnpm reset-project
 ```
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.

@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "autoIncrement": true,
       "developmentClient": true,
       "distribution": "internal"
     },
@@ -18,7 +19,6 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://bufet-media-center-production.up.railway.app",
         "EXPO_PUBLIC_ALLOW_HTTP": "0"
       }
     },

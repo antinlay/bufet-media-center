@@ -11,7 +11,6 @@ export default (): ExpoConfig => {
     icon: './assets/images/icon.png',
     scheme: 'bufetmediaplayer',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true,
     ios: {
       supportsTablet: true,
       infoPlist: {
@@ -26,7 +25,6 @@ export default (): ExpoConfig => {
         backgroundImage: './assets/images/android-icon-background.png',
         monochromeImage: './assets/images/android-icon-monochrome.png',
       },
-      edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: 'com.lyabowski.bufetmediaplayer',
     },
@@ -36,6 +34,8 @@ export default (): ExpoConfig => {
     },
     plugins: [
       'expo-router',
+      'expo-image',
+      'expo-secure-store',
       [
         'expo-splash-screen',
         {
@@ -64,8 +64,6 @@ export default (): ExpoConfig => {
     },
     extra: {
       router: {},
-      // Used only as a fallback; the app ignores localhost defaults and can auto-discover.
-      apiUrl: 'http://localhost:3000',
       eas: {
         projectId: 'adbe5572-c2fe-4836-a669-3f529b24c153',
       },

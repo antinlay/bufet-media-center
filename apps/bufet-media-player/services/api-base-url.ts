@@ -1,6 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
 import * as Network from 'expo-network';
-import Constants from 'expo-constants';
 
 const SECURE_STORE_KEY = 'bufet_api_base_url';
 const DEFAULT_DISCOVERY_PORTS = '443,80,3000';
@@ -35,8 +34,7 @@ function isBadDefault(url: string): boolean {
   const value = url.trim();
   if (!value) return true;
   if (value.includes('<your-domain-or-ip>')) return true;
-  if (value.startsWith('http://localhost')) return true;
-  if (value.startsWith('http://127.0.0.1')) return true;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(value)) return true;
   return false;
 }
 
@@ -89,16 +87,28 @@ async function clearSavedBaseUrl(): Promise<void> {
   }
 }
 
-function abortableTimeout(timeoutMs: number): { signal: AbortSignal; cancel: () => void } {
+function abortableTimeout(timeoutMs: number, callerSignal?: AbortSignal): { signal: AbortSignal; cancel: () => void } {
   const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  if (callerSignal?.aborted) {
+    controller.abort();
+  } else {
+    callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
+  }
   const id = setTimeout(() => controller.abort(), timeoutMs);
-  return { signal: controller.signal, cancel: () => clearTimeout(id) };
+  return {
+    signal: controller.signal,
+    cancel: () => {
+      clearTimeout(id);
+      callerSignal?.removeEventListener('abort', abortFromCaller);
+    },
+  };
 }
 
-async function probe(baseUrlRaw: string, deviceId: string): Promise<ProbeResult> {
+async function probe(baseUrlRaw: string, deviceId: string, callerSignal?: AbortSignal): Promise<ProbeResult> {
   const baseUrl = normalize(baseUrlRaw);
   const url = `${baseUrl}/api/player/bootstrap?deviceId=${encodeURIComponent(deviceId)}`;
-  const { signal, cancel } = abortableTimeout(PROBE_TIMEOUT_MS);
+  const { signal, cancel } = abortableTimeout(PROBE_TIMEOUT_MS, callerSignal);
   try {
     const response = await fetch(url, { signal });
     const status = response.status;
@@ -204,7 +214,7 @@ async function discoverOnLan(
       const candidate = queue.shift();
       if (!candidate) return;
       opts?.onProgress?.({ total, done, current: candidate });
-      const result = await probe(candidate, deviceId);
+      const result = await probe(candidate, deviceId, opts?.abortSignal);
       done += 1;
       opts?.onProgress?.({ total, done, current: candidate });
       if (result.ok) {
@@ -220,47 +230,37 @@ async function discoverOnLan(
   return found;
 }
 
-function appConfigApiUrl(): string | null {
-  const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
-  const raw = extra?.apiUrl;
-  return typeof raw === 'string' ? raw : null;
-}
-
 function envApiUrl(): string | null {
   const raw = process.env.EXPO_PUBLIC_API_URL;
   return typeof raw === 'string' ? raw : null;
 }
 
+function configuredApiUrl(): string | null {
+  const env = envApiUrl();
+  if (env && !isBadDefault(env)) return env;
+
+  return null;
+}
+
 async function resolve(deviceId: string, opts?: { onDiscoveryProgress?: (p: DiscoverProgress) => void; abortSignal?: AbortSignal }) {
   if (cachedBaseUrl) {
-    const ok = await probe(cachedBaseUrl, deviceId);
+    const ok = await probe(cachedBaseUrl, deviceId, opts?.abortSignal);
     if (ok.ok) return ok.baseUrl;
   }
 
   const saved = await readSavedBaseUrl();
   if (saved && !isBadDefault(saved)) {
-    const ok = await probe(saved, deviceId);
+    const ok = await probe(saved, deviceId, opts?.abortSignal);
     if (ok.ok) {
       cachedBaseUrl = ok.baseUrl;
       return ok.baseUrl;
     }
   }
 
-  const env = envApiUrl();
-  if (env && !isBadDefault(env)) {
-    for (const candidate of asUrlCandidates(env)) {
-      const ok = await probe(candidate, deviceId);
-      if (ok.ok) {
-        await saveBaseUrl(ok.baseUrl);
-        return ok.baseUrl;
-      }
-    }
-  }
-
-  const config = appConfigApiUrl();
-  if (config && !isBadDefault(config)) {
-    for (const candidate of asUrlCandidates(config)) {
-      const ok = await probe(candidate, deviceId);
+  const configured = configuredApiUrl();
+  if (configured) {
+    for (const candidate of asUrlCandidates(configured)) {
+      const ok = await probe(candidate, deviceId, opts?.abortSignal);
       if (ok.ok) {
         await saveBaseUrl(ok.baseUrl);
         return ok.baseUrl;
@@ -287,6 +287,7 @@ export const ApiBaseUrl = {
   readSavedBaseUrl,
   saveBaseUrl,
   clearSavedBaseUrl,
+  getConfiguredApiUrl: () => configuredApiUrl(),
   getCached: () => cachedBaseUrl,
   discoverOnLan,
 };

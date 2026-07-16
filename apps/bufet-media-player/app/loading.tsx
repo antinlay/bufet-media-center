@@ -19,7 +19,7 @@ export default function LoadingScreen() {
           router.replace({ pathname: '/pairing', params: { deviceId } });
         }
       } catch (err) {
-        console.error('Initialization error:', err);
+        console.info('Initialization fallback:', err);
         setError('API is unreachable. Opening setup.');
         setTimeout(() => router.replace('/setup'), 500);
       }

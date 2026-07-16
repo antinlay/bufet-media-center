@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView, type VideoSource } from 'expo-video';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { NoContent } from '@/components/no-content';
+import { TvButton } from '@/components/ui/tv-button';
 import { PlayerService, isAbsoluteUrl } from '@/services/player-service';
 import { PlaylistItem } from '@bufet/shared';
 
 type PlayerParams = {
   deviceId?: string;
 };
+
+function toMediaUrl(source: string, baseUrl: string): string {
+  return isAbsoluteUrl(source) ? source : `${baseUrl}${source.startsWith('/') ? '' : '/'}${source}`;
+}
 
 export default function PlayerScreen() {
   const router = useRouter();
@@ -19,7 +25,7 @@ export default function PlayerScreen() {
     const tag = 'player-screen';
 
     const requestWakeLock = async () => {
-      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      if (process.env.EXPO_OS === 'web' && typeof document !== 'undefined') {
         if (document.visibilityState !== 'visible') return;
       }
       try {
@@ -31,7 +37,7 @@ export default function PlayerScreen() {
 
     requestWakeLock();
 
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    if (process.env.EXPO_OS === 'web' && typeof document !== 'undefined') {
       const handleVisibility = () => {
         if (!active) return;
         if (document.visibilityState === 'visible') {
@@ -67,37 +73,32 @@ export default function PlayerScreen() {
   }, []);
 
   const { deviceId } = useLocalSearchParams<PlayerParams>();
-  const [currentItem, setCurrentItem] = useState<PlaylistItem | null>(null);
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [apiBaseUrl, setApiBaseUrl] = useState<string | null>(PlayerService.getCachedApiBaseUrl());
+  const playlistAbortRef = useRef<AbortController | null>(null);
 
-  const loadPlaylist = async () => {
+  const loadPlaylist = useCallback(async () => {
     if (!deviceId) return;
+    playlistAbortRef.current?.abort();
+    const controller = new AbortController();
+    playlistAbortRef.current = controller;
     try {
-      const baseUrl = await PlayerService.ensureApiBaseUrl(deviceId);
+      const baseUrl = await PlayerService.ensureApiBaseUrl(deviceId, controller.signal);
+      if (controller.signal.aborted) return;
       setApiBaseUrl(baseUrl);
-      const config = await PlayerService.getDeviceConfig(deviceId, baseUrl);
+      const config = await PlayerService.getDeviceConfig(deviceId, baseUrl, controller.signal);
+      if (controller.signal.aborted) return;
       const sortedItems = [...config.playlist.items]
-        .filter((item) => item.mediaUrl || item.url) // remove broken entries
-        .sort((a, b) => {
-          const aOrder = a.order ?? a.position ?? a.id;
-          const bOrder = b.order ?? b.position ?? b.id;
-          return aOrder - bOrder;
-        })
+        .filter((item) => item.url.trim().length > 0)
+        .sort((a, b) => a.order - b.order)
         .map((item) => ({
           ...item,
-          url: (() => {
-            const src = item.mediaUrl ?? item.url;
-            if (!src) return undefined;
-            return isAbsoluteUrl(src)
-              ? src
-              : `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
-          })(),
-          thumbnailUrl: item.thumbnailUrl ?? (item as any).poster ?? item.mediaUrl ?? item.url,
+          url: toMediaUrl(item.url, baseUrl),
+          thumbnailUrl: item.thumbnailUrl ? toMediaUrl(item.thumbnailUrl, baseUrl) : null,
         }));
       setPlaylist(sortedItems);
       setCurrentIndex(0);
@@ -105,12 +106,13 @@ export default function PlayerScreen() {
       setError(null);
       await PlayerService.saveCachedPlaylist({
         items: sortedItems,
-        configVersion: (config.settings as any)?.config_version,
+        configVersion: typeof config.settings?.config_version === 'string' ? config.settings.config_version : undefined,
       });
       PlayerService.cachePlaylistMedia(sortedItems).catch((cacheError) => {
         console.warn('Playlist cache error:', cacheError);
       });
     } catch (err) {
+      if (controller.signal.aborted) return;
       try {
         const cached = await PlayerService.readCachedPlaylist();
         if (cached?.items?.length) {
@@ -127,15 +129,25 @@ export default function PlayerScreen() {
       setError('Failed to load playlist');
       setLoading(false);
       console.error('Playlist load error:', err);
+    } finally {
+      if (playlistAbortRef.current === controller) {
+        playlistAbortRef.current = null;
+      }
     }
-  };
+  }, [deviceId]);
 
   useEffect(() => {
-    loadPlaylist();
+    const initialLoad = setTimeout(() => void loadPlaylist(), 0);
     const interval = setInterval(loadPlaylist, 60_000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId]);
+    return () => {
+      clearTimeout(initialLoad);
+      clearInterval(interval);
+      playlistAbortRef.current?.abort();
+      playlistAbortRef.current = null;
+    };
+  }, [loadPlaylist]);
+
+  const currentItem = playlist[currentIndex] ?? null;
 
   const playNext = useCallback(() => {
     if (playlist.length > 0) {
@@ -149,12 +161,6 @@ export default function PlayerScreen() {
     }
     playNext();
   }, [currentItem?.type, playNext]);
-
-  useEffect(() => {
-    if (playlist.length > 0) {
-      setCurrentItem(playlist[currentIndex]);
-    }
-  }, [playlist, currentIndex]);
 
   const currentVideoItem = useMemo(() => {
     return currentItem?.type === 'VIDEO' ? currentItem : null;
@@ -216,10 +222,10 @@ export default function PlayerScreen() {
   }, [nextItem]);
 
   useEffect(() => {
-    const unsub = currentPlayer.addListener('playToEnd', handleVideoEnd);
+    const subscription = currentPlayer.addListener('playToEnd', handleVideoEnd);
     return () => {
       try {
-        unsub?.();
+        subscription.remove();
       } catch {
         // ignore
       }
@@ -249,20 +255,14 @@ export default function PlayerScreen() {
       <View style={styles.container}>
         <View style={styles.noContent}>
           <NoContent />
-          <Text style={styles.errorText}>
+          <Text style={styles.errorText} selectable>
             {error ?? last?.message ?? 'No content'}
           </Text>
-          <Text style={styles.hintText}>API: {apiBaseUrl ?? PlayerService.getCachedApiBaseUrl() ?? '(not resolved)'}</Text>
+          <Text style={styles.hintText} selectable>API: {apiBaseUrl ?? PlayerService.getCachedApiBaseUrl() ?? '(not resolved)'}</Text>
           <View style={styles.actions}>
-            <Pressable onPress={() => { setLoading(true); setError(null); loadPlaylist(); }}>
-              <Text style={styles.linkLike}>Retry</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/setup')}>
-              <Text style={styles.linkLike}>Open setup</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/diagnostics')}>
-              <Text style={styles.linkLike}>Open diagnostics</Text>
-            </Pressable>
+            <TvButton label="Retry" onPress={() => { setLoading(true); setError(null); void loadPlaylist(); }} hasTVPreferredFocus />
+            <TvButton label="Open setup" variant="secondary" onPress={() => router.push('/setup')} style={styles.actionButton} />
+            <TvButton label="Open diagnostics" variant="ghost" onPress={() => router.push('/diagnostics')} style={styles.actionButton} />
           </View>
         </View>
       </View>
@@ -276,7 +276,7 @@ export default function PlayerScreen() {
           <Image
             source={{ uri: currentVideoItem.thumbnailUrl }}
             style={styles.videoBackdrop}
-            resizeMode="cover"
+            contentFit="cover"
             blurRadius={12}
           />
         ) : null}
@@ -296,14 +296,14 @@ export default function PlayerScreen() {
         key={`${currentItem.id}-backdrop`}
         source={{ uri: currentItem.url }}
         style={styles.videoBackdrop}
-        resizeMode="cover"
+        contentFit="cover"
         blurRadius={12}
       />
       <Image
         key={currentItem.id}
         source={{ uri: currentItem.url }}
         style={styles.image}
-        resizeMode="contain"
+        contentFit="contain"
       />
     </View>
   );
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   videoBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },
@@ -351,9 +351,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  linkLike: {
-    color: '#4da3ff',
-    fontSize: 16,
-    textDecorationLine: 'underline',
+  actionButton: {
+    marginTop: 12,
+    minWidth: 220,
   },
 });

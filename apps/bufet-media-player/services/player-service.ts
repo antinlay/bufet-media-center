@@ -1,6 +1,5 @@
-import 'react-native-get-random-values';
 import * as SecureStore from 'expo-secure-store';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import {
   BootstrapResponse,
@@ -73,11 +72,11 @@ export class PlayerService {
     this.memoryStore.set(key, value);
   }
 
-  static async ensureApiBaseUrl(deviceId: string): Promise<string> {
+  static async ensureApiBaseUrl(deviceId: string, signal?: AbortSignal): Promise<string> {
     // If we've already resolved once in this session, don't re-probe on every call.
     if (this.cachedApiBaseUrl) return this.cachedApiBaseUrl;
 
-    const resolved = await ApiBaseUrl.resolve(deviceId);
+    const resolved = await ApiBaseUrl.resolve(deviceId, { abortSignal: signal });
     if (!resolved) {
       const error: PlayerServiceNetworkError = {
         code: 'API_NOT_CONFIGURED',
@@ -100,9 +99,20 @@ export class PlayerService {
   ): Promise<T> {
     const url = `${baseUrl}${path}`;
     const controller = new AbortController();
+    const callerSignal = init?.signal;
+    const abortFromCaller = () => controller.abort();
+    const fetchInit = { ...init };
+    delete fetchInit.signal;
+
+    if (callerSignal?.aborted) {
+      controller.abort();
+    } else {
+      callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
+    }
+
     const timeout = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT_MS);
     try {
-      const response = await fetch(url, { method, ...init, signal: controller.signal });
+      const response = await fetch(url, { method, ...fetchInit, signal: controller.signal });
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         const error: PlayerServiceNetworkError = {
@@ -122,7 +132,8 @@ export class PlayerService {
       this.lastNetworkError = null;
       return json as T;
     } catch (cause) {
-      if (cause instanceof Error && (cause as any).__bufetError) throw cause;
+      if (cause instanceof Error && '__bufetError' in cause) throw cause;
+      if (callerSignal?.aborted) throw cause;
       const error: PlayerServiceNetworkError = {
         code: 'NETWORK_ERROR',
         baseUrl,
@@ -135,6 +146,7 @@ export class PlayerService {
       throw Object.assign(new Error(error.message), { __bufetError: error });
     } finally {
       clearTimeout(timeout);
+      callerSignal?.removeEventListener('abort', abortFromCaller);
     }
   }
 
@@ -285,21 +297,23 @@ export class PlayerService {
     return { ...data, expiresAt: new Date(data.expiresAt) } as PairingResponse;
   }
 
-  static async getPairingStatus(deviceId: string): Promise<PairingStatusResponse> {
+  static async getPairingStatus(deviceId: string, signal?: AbortSignal): Promise<PairingStatusResponse> {
     const baseUrl = await this.ensureApiBaseUrl(deviceId);
     return this.fetchJson<PairingStatusResponse>(
       baseUrl,
       'GET',
       `/api/player/pairing/status?deviceId=${encodeURIComponent(deviceId)}`,
+      { signal },
     );
   }
 
-  static async getDeviceConfig(deviceId: string, baseUrlOverride?: string): Promise<DeviceConfigResponse> {
-    const baseUrl = baseUrlOverride ?? await this.ensureApiBaseUrl(deviceId);
+  static async getDeviceConfig(deviceId: string, baseUrlOverride?: string, signal?: AbortSignal): Promise<DeviceConfigResponse> {
+    const baseUrl = baseUrlOverride ?? await this.ensureApiBaseUrl(deviceId, signal);
     return this.fetchJson<DeviceConfigResponse>(
       baseUrl,
       'GET',
       `/api/player/config?deviceId=${encodeURIComponent(deviceId)}`,
+      { signal },
     );
   }
 }
