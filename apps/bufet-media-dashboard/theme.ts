@@ -2,13 +2,18 @@ import { MD3DarkTheme, MD3LightTheme, configureFonts, type MD3Theme } from 'reac
 
 export const palette = {
   ink: '#0B0B0D',
+  panel: '#14161B',
+  panelRaised: '#1C1F25',
   charcoal: '#1A1512',
   gold: '#F2A018',
   goldDeep: '#C37A10',
   cream: '#F7F2E8',
   fog: '#E2D8C7',
+  muted: '#9297A1',
   slate: '#4A3F36',
   ember: '#B44A12',
+  danger: '#FF3847',
+  success: '#69E345',
 };
 
 const fontConfig = {

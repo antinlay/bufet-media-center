@@ -1,814 +1,466 @@
-import { useMemo, useState } from 'react';
-import { FlatList, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
-import { Button, IconButton, Text } from 'react-native-paper';
-import { TextInput } from '../../components/TextInput';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import DraggableFlatList from 'react-native-draggable-flatlist';
-import * as DocumentPicker from 'expo-document-picker';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { ActivityIndicator, Menu, Text } from 'react-native-paper';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 
-import { AppShell } from '../../components/AppShell';
-import { BrandCard } from '../../components/BrandCard';
-import { EmptyState } from '../../components/EmptyState';
-import { Section } from '../../components/Section';
-import { apiBaseUrl, apiClient } from '../../lib/api';
-import { brandFonts, palette } from '../../theme';
-import type { ConcertoPlaylistItem } from '@bufet/shared';
+import { GalleryShell } from '../../features/media-points/GalleryShell';
+import {
+  useDeletePlaylistItem,
+  usePlaylistEditor,
+  useSavePlaylistOrder,
+  useUploadPlaylistFiles,
+} from '../../features/screen-playlist/hooks';
+import { MediaThumbnail } from '../../features/screen-playlist/MediaThumbnail';
+import { formatDuration, type PlaylistItemViewModel } from '../../features/screen-playlist/model';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
+import { pickMediaFiles } from '../../lib/upload';
+import { brandFonts, palette } from '../../theme';
 
-type ScreenParams = {
-  id?: string;
-};
+type ScreenParams = { id?: string };
 
-type MediaFormState = {
-  open: boolean;
-  mode: 'upload' | 'library';
-  type: 'Graphic' | 'Video';
-  source: 'url' | 'file';
-  name: string;
-  duration: string;
-  url: string;
-  file: DocumentPicker.DocumentPickerAsset | null;
-  error: string | null;
-  selectedContentId: number | null;
-  selectedContentType: 'Graphic' | 'Video' | null;
-  libraryDuration: string;
-};
-
-const emptyForm: MediaFormState = {
-  open: false,
-  mode: 'upload',
-  type: 'Graphic',
-  source: 'url',
-  name: '',
-  duration: '15',
-  url: '',
-  file: null,
-  error: null,
-  selectedContentId: null,
-  selectedContentType: null,
-  libraryDuration: '15',
-};
-
-function isAbsoluteUrl(url?: string | null) {
-  return Boolean(url && /^(https?:)?\/\//i.test(url));
+function normalizeOrder(items: PlaylistItemViewModel[]) {
+  return items.map((item, position) => ({ ...item, position }));
 }
 
-function resolveMediaUrl(url?: string | null) {
-  if (!url) return undefined;
-  return isAbsoluteUrl(url) ? url : `${apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+function mergeServerItems(current: PlaylistItemViewModel[], server: PlaylistItemViewModel[]) {
+  const serverById = new Map(server.map((item) => [item.submissionId, item]));
+  const currentIds = new Set(current.map((item) => item.submissionId));
+  const kept = current.flatMap((item) => {
+    const updated = serverById.get(item.submissionId);
+    return updated ? [{ ...updated, position: item.position }] : [];
+  });
+  const added = server.filter((item) => !currentIds.has(item.submissionId));
+  return normalizeOrder([...kept, ...added]);
 }
 
-export default function ScreenEditor() {
+export default function PlaylistEditorScreen() {
   useProtectedRoute();
   const router = useRouter();
   const params = useLocalSearchParams<ScreenParams>();
   const screenId = params.id ? Number(params.id) : null;
-  const queryClient = useQueryClient();
+  const editorQuery = usePlaylistEditor(screenId);
+  const uploadMutation = useUploadPlaylistFiles(screenId ?? 0);
+  const saveMutation = useSavePlaylistOrder(screenId ?? 0);
+  const deleteMutation = useDeletePlaylistItem(screenId ?? 0);
+  const [items, setItems] = useState<PlaylistItemViewModel[]>([]);
+  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [itemMenuId, setItemMenuId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+  const pendingRouteRef = useRef<'url' | 'library' | null>(null);
 
-  const screenQuery = useQuery({
-    queryKey: ['screen', screenId],
-    queryFn: ({ signal }) => apiClient.getScreen(screenId as number, signal),
-    enabled: Boolean(screenId),
-  });
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
 
-  const playlistQuery = useQuery({
-    queryKey: ['screen-playlist', screenId],
-    queryFn: ({ signal }) => apiClient.getScreenPlaylist(screenId as number, signal),
-    enabled: Boolean(screenId),
-  });
+  useEffect(() => {
+    if (addMenuOpen || !pendingRouteRef.current) return;
+    const destination = pendingRouteRef.current;
+    pendingRouteRef.current = null;
+    if (!screenId) return;
+    router.push(`/screens/${screenId}/${destination}` as Href);
+  }, [addMenuOpen, router, screenId]);
 
-  const contentsQuery = useQuery({
-    queryKey: ['contents'],
-    queryFn: ({ signal }) => apiClient.getContents(signal),
-  });
+  useEffect(() => {
+    const serverItems = editorQuery.data?.items;
+    if (!serverItems) return;
+    setItems((current) => dirtyRef.current ? mergeServerItems(current, serverItems) : serverItems);
+  }, [editorQuery.data?.items]);
 
-  const screensListQuery = useQuery({
-    queryKey: ['screens'],
-    queryFn: ({ signal }) => apiClient.getScreens(signal),
-  });
-
-  const [screenNameOverride, setScreenNameOverride] = useState<string | null>(null);
-  const [form, setForm] = useState<MediaFormState>(emptyForm);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [durationOverrides, setDurationOverrides] = useState<Record<number, string>>({});
-  const [orderedItemsOverride, setOrderedItemsOverride] = useState<ConcertoPlaylistItem[] | null>(null);
-  const [applyModalOpen, setApplyModalOpen] = useState(false);
-  const [sourceScreenId, setSourceScreenId] = useState<number | null>(null);
-  const [imageSizes, setImageSizes] = useState<Record<number, { width: number; height: number }>>({});
-
-  const screenName = screenNameOverride ?? screenQuery.data?.name ?? '';
-  const serverItems = useMemo(() => [...(playlistQuery.data?.items ?? [])].sort((a, b) => {
-      const aPos = a.position ?? 0;
-      const bPos = b.position ?? 0;
-      return aPos - bPos;
-    }), [playlistQuery.data?.items]);
-
-  const updateScreenMutation = useMutation({
-    mutationFn: () => apiClient.updateScreen(screenId as number, { name: screenName }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['screen', screenId], data);
-      queryClient.invalidateQueries({ queryKey: ['screens'] });
-    },
-  });
-
-  const createItemMutation = useMutation({
-    mutationFn: async () => {
-      if (!screenId) throw new Error('Экран не найден');
-
-      // library path
-      if (form.mode === 'library') {
-        if (!form.selectedContentId) throw new Error('Выберите медиа из библиотеки');
-        const durationNumber = form.selectedContentType === 'Graphic' && form.libraryDuration
-          ? Number(form.libraryDuration)
-          : undefined;
-        return apiClient.addContentToScreenPlaylist(screenId, form.selectedContentId, durationNumber);
-      }
-
-      // upload path -> always go through contents
-      if (form.type === 'Graphic' && !form.file) throw new Error('Выберите изображение');
-      if (form.type === 'Video' && form.source === 'url' && !form.url) {
-        throw new Error('Укажите ссылку на видео');
-      }
-      if (form.type === 'Video' && form.source === 'file' && !form.file) {
-        throw new Error('Выберите видеофайл');
-      }
-      if (form.type === 'Video' && form.source === 'file' && form.file?.size && form.file.size > 100 * 1024 * 1024) {
-        throw new Error('Видео больше 100MB');
-      }
-
-      // try find existing in contents
-      const contents = contentsQuery.data ?? [];
-      const existing = contents.find((c) => {
-        if (c.type !== form.type) return false;
-        if (form.type === 'Graphic') {
-          return form.name && c.name === form.name;
-        }
-        if (form.type === 'Video') {
-          return form.source === 'url' ? c.url === form.url : c.name === form.name;
-        }
-        return false;
-      });
-
-      let contentId = existing?.id;
-
-      if (!contentId) {
-        const payload: Parameters<typeof apiClient.createContent>[0] = {
-          type: form.type,
-          name: form.name || undefined,
-          duration: form.type === 'Graphic' && form.duration ? Number(form.duration) : undefined,
-          url: form.type === 'Video' && form.source === 'url' ? form.url : undefined,
-        };
-        const file = form.file
-          ? {
-              uri: form.file.uri,
-              name: form.file.name ?? 'upload',
-              type: form.file.mimeType ?? 'application/octet-stream',
-            }
-          : undefined;
-        const created = await apiClient.createContent(payload, file);
-        contentId = created.id;
-        await queryClient.invalidateQueries({ queryKey: ['contents'] });
-      }
-
-      const durationNumber = form.type === 'Graphic' && form.duration ? Number(form.duration) : undefined;
-      return apiClient.addContentToScreenPlaylist(screenId, contentId, durationNumber);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['screen-playlist', screenId] });
-      setForm({ ...emptyForm, open: false });
-    },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Не удалось добавить медиа';
-      setForm((prev) => ({ ...prev, error: message }));
-    },
-  });
-
-  const updateItemMutation = useMutation({
-    mutationFn: ({ submissionId, payload }: { submissionId: number; payload: { name?: string; duration?: number } }) =>
-      apiClient.updateScreenPlaylistItem(screenId as number, submissionId, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['screen-playlist', screenId] }),
-  });
-
-  const deleteItemMutation = useMutation({
-    mutationFn: (submissionId: number) => apiClient.deleteScreenPlaylistItem(screenId as number, submissionId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['screen-playlist', screenId] }),
-  });
-
-  const reorderMutation = useMutation({
-    mutationFn: (ids: number[]) => apiClient.reorderScreenPlaylist(screenId as number, ids),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['screen-playlist', screenId] }),
-  });
-
-  const applyPlaylistMutation = useMutation({
-    mutationFn: () => apiClient.applyScreenPlaylist(screenId as number, sourceScreenId as number),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['screen-playlist', screenId] });
-      setApplyModalOpen(false);
-      setSourceScreenId(null);
-    },
-  });
-
-  const items = orderedItemsOverride ?? serverItems;
-
-  const headerSubtitle = useMemo(() => {
-    if (screenQuery.isLoading) return 'Загружаем экран…';
-    return 'Список медиа‑блоков. Тяните за иконку ≡, чтобы менять порядок.';
-  }, [screenQuery.isLoading]);
-
-  const libraryItems = useMemo(() => {
-    const all = contentsQuery.data ?? [];
-    return all.filter((item) => item.type === 'Graphic' || item.type === 'Video');
-  }, [contentsQuery.data]);
-
-  const availableScreens = useMemo(() => {
-    const screens = screensListQuery.data ?? [];
-    return screens.filter((s) => s.id !== screenId);
-  }, [screensListQuery.data, screenId]);
-
-  const contentById = useMemo(() => {
-    const map: Record<number, any> = {};
-    (contentsQuery.data ?? []).forEach((c) => {
-      map[c.id] = c;
-    });
-    return map;
-  }, [contentsQuery.data]);
-
-  const formatDuration = (seconds?: number | null) => {
-    if (!seconds || !Number.isFinite(seconds)) return '—';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const goBack = () => {
+    if (!dirty) {
+      router.back();
+      return;
+    }
+    const leave = () => router.back();
+    if (Platform.OS === 'web') {
+      if (window.confirm('Выйти без сохранения порядка?')) leave();
+      return;
+    }
+    Alert.alert('Несохранённые изменения', 'Выйти без сохранения порядка?', [
+      { text: 'Остаться', style: 'cancel' },
+      { text: 'Выйти', style: 'destructive', onPress: leave },
+    ]);
   };
 
-  if (!screenId) {
+  const uploadFromDevice = async () => {
+    setAddMenuOpen(false);
+    setError(null);
+    try {
+      const files = await pickMediaFiles();
+      if (!files.length) return;
+      setUploadProgress({ done: 0, total: files.length });
+      uploadMutation.mutate(
+        {
+          files,
+          onProgress: (done, total) => setUploadProgress({ done, total }),
+        },
+        {
+          onSuccess: (added) => {
+            setItems((current) => normalizeOrder([...current, ...added]));
+            setDirty(true);
+          },
+          onError: (mutationError) => {
+            setError(mutationError instanceof Error ? mutationError.message : 'Не удалось загрузить файлы');
+          },
+          onSettled: () => setUploadProgress(null),
+        },
+      );
+    } catch (pickerError) {
+      setError(pickerError instanceof Error ? pickerError.message : 'Не удалось выбрать файлы');
+    }
+  };
+
+  const save = () => {
+    if (!screenId || !items.length || !dirty) return;
+    setError(null);
+    setSuccess(null);
+    saveMutation.mutate(items, {
+      onSuccess: () => {
+        setItems((current) => normalizeOrder(current));
+        setDirty(false);
+        setSuccess('Плейлист сохранён');
+      },
+      onError: (mutationError) => {
+        setError(mutationError instanceof Error ? mutationError.message : 'Не удалось сохранить плейлист');
+      },
+    });
+  };
+
+  const requestDelete = (item: PlaylistItemViewModel) => {
+    setItemMenuId(null);
+    const remove = () => deleteMutation.mutate(item.submissionId, {
+      onSuccess: () => {
+        setItems((current) => normalizeOrder(current.filter((candidate) => candidate.submissionId !== item.submissionId)));
+        setDirty(true);
+      },
+      onError: (mutationError) => {
+        setError(mutationError instanceof Error ? mutationError.message : 'Не удалось удалить медиа');
+      },
+    });
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Удалить «${item.title}» из плейлиста?`)) remove();
+      return;
+    }
+    Alert.alert('Удалить медиа?', item.title, [
+      { text: 'Отмена', style: 'cancel' },
+      { text: 'Удалить', style: 'destructive', onPress: remove },
+    ]);
+  };
+
+  const plusButton = (
+    <Menu
+      visible={addMenuOpen}
+      onDismiss={() => setAddMenuOpen(false)}
+      contentStyle={styles.addMenu}
+      anchor={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Добавить медиа"
+          onPress={() => setAddMenuOpen(true)}
+          style={({ pressed }) => [styles.plusButton, pressed && styles.pressed]}
+        >
+          <MaterialCommunityIcons name="plus" color={palette.ink} size={25} />
+        </Pressable>
+      }
+    >
+      <Menu.Item leadingIcon="cellphone" title="С устройства" onPress={uploadFromDevice} />
+      <Menu.Item
+        leadingIcon="link-variant"
+        title="По ссылке"
+        onPress={() => {
+          pendingRouteRef.current = 'url';
+          setAddMenuOpen(false);
+        }}
+      />
+      <Menu.Item
+        leadingIcon="image-multiple-outline"
+        title="Из библиотеки"
+        onPress={() => {
+          pendingRouteRef.current = 'library';
+          setAddMenuOpen(false);
+        }}
+      />
+    </Menu>
+  );
+
+  if (!screenId || Number.isNaN(screenId)) {
+    return <StateScreen title="Экран не найден" message="Проверьте ссылку и вернитесь в галерею." />;
+  }
+
+  if (editorQuery.isLoading) {
+    return <StateScreen loading title="Редактирование плейлиста" message="Загружаем экран…" />;
+  }
+
+  if (editorQuery.isError || !editorQuery.data) {
     return (
-      <AppShell title="Экран" subtitle="Экран не найден.">
-        <EmptyState title="Нет данных" subtitle="Проверьте ссылку на экран." />
-      </AppShell>
+      <StateScreen
+        title="Экран не найден"
+        message={editorQuery.error instanceof Error ? editorQuery.error.message : 'Не удалось загрузить плейлист'}
+        onRetry={() => editorQuery.refetch()}
+      />
     );
   }
 
   return (
-    <AppShell
-      title="Экран"
-      subtitle={headerSubtitle}
-      actions={
-        <View style={styles.headerActions}>
-          <Button mode="outlined" onPress={() => router.push('/scan')}>
-            Сканировать QR
-          </Button>
-          <Button mode="contained" onPress={() => setForm((prev) => ({ ...prev, open: true }))}>
-            Добавить медиа
-          </Button>
-        </View>
-      }
+    <GalleryShell
+      title="Редактирование плейлиста"
+      subtitle={`${editorQuery.data.organizationName} · ${editorQuery.data.screenName}`}
+      showBack
+      scrollable={false}
+      onBackPress={goBack}
+      toolbarActions={plusButton}
     >
-      <BrandCard>
-        <Text style={styles.cardTitle}>Название экрана</Text>
-        <TextInput
-          label="Экран"
-          value={screenName}
-          onChangeText={setScreenNameOverride}
-          onBlur={() => {
-            if (screenName && screenName !== screenQuery.data?.name) {
-              updateScreenMutation.mutate();
-            }
-          }}
-          style={styles.input}
-        />
-      </BrandCard>
-
-      <Section
-        title="Плейлист"
-        subtitle="Медиа‑блоки идут сверху вниз. Тяните за иконку ≡, чтобы упорядочить."
-        actions={
-          <View style={styles.sectionActions}>
-            <Button mode="outlined" onPress={() => setApplyModalOpen(true)}>
-              Применить плейлист экрана
-            </Button>
+      <View style={styles.editor}>
+        {error ? <MessageBanner text={error} danger /> : null}
+        {success ? <MessageBanner text={success} /> : null}
+        {uploadProgress ? (
+          <View style={styles.progressBanner}>
+            <ActivityIndicator color={palette.gold} size="small" />
+            <Text style={styles.progressText}>
+              Загружаем {uploadProgress.done + 1 > uploadProgress.total ? uploadProgress.total : uploadProgress.done + 1}
+              {' '}из {uploadProgress.total}
+            </Text>
           </View>
-        }
-      >
-        {items.length === 0 ? (
-          <EmptyState title="Плейлист пуст" subtitle="Добавьте изображения или видео, чтобы начать показ." />
-        ) : (
-          <DraggableFlatList
-            data={items}
-            keyExtractor={(item) => String(item.submissionId)}
-            activationDistance={8}
-            autoscrollThreshold={64}
-            onDragEnd={({ data }) => {
-              const normalized = data.map((item, index) => ({
-                ...item,
-                position: index,
-                order: index,
-              }));
-              setOrderedItemsOverride(normalized);
-              reorderMutation.mutate(normalized.map((item) => item.submissionId));
-            }}
-            renderItem={({ item, drag, isActive }) => {
-              const content = contentById[item.contentId ?? -1];
-              const mediaUrl =
-                resolveMediaUrl(item.mediaUrl) ??
-                resolveMediaUrl(content?.url) ??
-                resolveMediaUrl(content?.imageUrl);
-              const thumbnailUrl =
-                resolveMediaUrl(item.thumbnailUrl) ??
-                resolveMediaUrl(content?.thumbnailUrl) ??
-                resolveMediaUrl(content?.imageUrl) ??
-                mediaUrl;
-              const durationValue = durationOverrides[item.submissionId] ?? String(item.duration ?? 15);
-              const isVideo = item.type === 'Video';
+        ) : null}
 
-              return (
-                <Pressable
-                  disabled={isActive}
-                  style={[styles.mediaCard, isActive && styles.mediaCardActive]}
-                >
-                  <Pressable onPressIn={drag} style={styles.dragHandle}>
-                    <MaterialCommunityIcons name="drag-vertical" size={24} color={palette.slate} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      if (isVideo) {
-                        if (mediaUrl) {
-                          if (process.env.EXPO_OS === 'web') {
-                            window.open(mediaUrl, '_blank');
-                          } else {
-                            Linking.openURL(mediaUrl);
-                          }
-                        }
-                      } else if (thumbnailUrl) {
-                        setPreviewUrl(thumbnailUrl);
-                      }
-                    }}
-                  >
-                    {thumbnailUrl ? (
-                      <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} />
-                    ) : (
-                      <View style={styles.thumbnailPlaceholder}>
-                        <MaterialCommunityIcons name={isVideo ? 'video' : 'image'} size={28} color={palette.goldDeep} />
-                      </View>
-                    )}
-                  </Pressable>
-
-                  <View style={styles.mediaInfo}>
-                    <Text style={styles.mediaTitle}>{item.name ?? (isVideo ? 'Видео' : 'Изображение')}</Text>
-                    <Text style={styles.mediaMeta}>Тип: {isVideo ? 'Видео' : 'Картинка'}</Text>
-                    {isVideo ? (
-                      <Text style={styles.mediaMeta}>Длительность: авто</Text>
-                    ) : (
-                      <TextInput
-                        label="Длительность (сек)"
-                        value={durationValue}
-                        keyboardType="numeric"
-                        onChangeText={(value) => setDurationOverrides((prev) => ({ ...prev, [item.submissionId]: value }))}
-                        onBlur={() => {
-                          const parsed = Number(durationValue);
-                          if (Number.isFinite(parsed) && parsed > 0 && parsed !== item.duration) {
-                            updateItemMutation.mutate({ submissionId: item.submissionId, payload: { duration: parsed } });
-                          }
-                        }}
-                        style={styles.durationInput}
-                      />
-                    )}
-                  </View>
-
-                  <View style={styles.mediaActions}>
-                    <IconButton
-                      icon="trash-can-outline"
-                      onPress={() => deleteItemMutation.mutate(item.submissionId)}
-                    />
-                  </View>
-                </Pressable>
-              );
-            }}
-            contentContainerStyle={styles.listContent}
-          />
-        )}
-      </Section>
-
-      <Modal visible={Boolean(previewUrl)} transparent animationType="fade">
-        <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
-          {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} contentFit="contain" /> : null}
-        </Pressable>
-      </Modal>
-
-      <Modal visible={form.open} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setForm({ ...emptyForm, open: false })}>
-          <Pressable style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Добавить медиа</Text>
-            <View style={styles.modalTypeRow}>
-              <Button
-                mode={form.mode === 'upload' ? 'contained' : 'outlined'}
-                onPress={() => setForm((prev) => ({ ...emptyForm, open: true, mode: 'upload' }))}
-              >
-                Загрузить
-              </Button>
-              <Button
-                mode={form.mode === 'library' ? 'contained' : 'outlined'}
-                onPress={() => setForm((prev) => ({ ...emptyForm, open: true, mode: 'library' }))}
-              >
-                Библиотека
-              </Button>
+        <DraggableFlatList
+          data={items}
+          keyExtractor={(item) => String(item.submissionId)}
+          activationDistance={8}
+          autoscrollThreshold={72}
+          containerStyle={styles.list}
+          contentContainerStyle={items.length ? styles.listContent : styles.emptyListContent}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="playlist-plus" color={palette.gold} size={38} />
+              <Text style={styles.emptyTitle}>Плейлист пуст</Text>
+              <Text style={styles.emptyText}>Нажмите +, чтобы добавить изображение или видео.</Text>
             </View>
-            {form.mode === 'upload' ? (
-              <View style={styles.modalTypeRow}>
-                <Button
-                  mode={form.type === 'Graphic' ? 'contained' : 'outlined'}
-                  onPress={() => setForm((prev) => ({ ...prev, type: 'Graphic', source: 'url', file: null, url: '', error: null }))}
-                  >
-                  Картинка
-                </Button>
-                <Button
-                  mode={form.type === 'Video' && form.source === 'url' ? 'contained' : 'outlined'}
-                  onPress={() => setForm((prev) => ({ ...prev, type: 'Video', source: 'url', file: null, error: null }))}
-                >
-                  Видео (URL)
-                </Button>
-                <Button
-                  mode={form.type === 'Video' && form.source === 'file' ? 'contained' : 'outlined'}
-                  onPress={() => setForm((prev) => ({ ...prev, type: 'Video', source: 'file', url: '', error: null }))}
-                >
-                  Видео (файл до 100MB)
-                </Button>
-              </View>
-            ) : null}
-            {form.error ? <Text style={styles.errorText} selectable>{form.error}</Text> : null}
-            {form.mode === 'upload' ? (
-              <>
-                <TextInput
-                  label="Название"
-                  value={form.name}
-                  onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
-                  style={styles.input}
-                />
-                {form.type === 'Graphic' ? (
-                  <TextInput
-                    label="Длительность (сек)"
-                    value={form.duration}
-                    keyboardType="numeric"
-                    onChangeText={(value) => setForm((prev) => ({ ...prev, duration: value }))}
-                    style={styles.input}
-                  />
-                ) : (
-                  <Text style={styles.mediaMeta}>Длительность видео берётся автоматически.</Text>
-                )}
-                {form.type === 'Graphic' ? (
-                  <Button
-                    mode="outlined"
-                    onPress={async () => {
-                      const result = await DocumentPicker.getDocumentAsync({ type: 'image/*' });
-                      if (!result.canceled) {
-                        setForm((prev) => ({ ...prev, file: result.assets[0], error: null }));
-                      }
-                    }}
-                  >
-                    {form.file ? `Файл: ${form.file.name}` : 'Выбрать изображение'}
-                  </Button>
-                ) : form.source === 'file' ? (
-                  <Button
-                    mode="outlined"
-                    onPress={async () => {
-                      const result = await DocumentPicker.getDocumentAsync({ type: 'video/*' });
-                      if (!result.canceled) {
-                        const asset = result.assets[0];
-                        if (asset?.size && asset.size > 100 * 1024 * 1024) {
-                          setForm((prev) => ({ ...prev, file: null, error: 'Видео больше 100MB' }));
-                        } else {
-                          setForm((prev) => ({ ...prev, file: asset, error: null }));
-                        }
-                      }
-                    }}
-                  >
-                    {form.file ? `Файл: ${form.file.name}` : 'Выбрать видео (до 100MB)'}
-                  </Button>
-                ) : (
-                  <TextInput
-                    label="URL видео"
-                    value={form.url}
-                    onChangeText={(value) => setForm((prev) => ({ ...prev, url: value }))}
-                    style={styles.input}
-                  />
-                )}
-              </>
-            ) : (
-              <>
-                <Text style={styles.mediaMeta}>Выберите медиа из библиотеки</Text>
-                <View style={styles.libraryWrapper}>
-                  <FlatList
-                    data={libraryItems}
-                    numColumns={3}
-                    keyExtractor={(item) => String(item.id)}
-                    columnWrapperStyle={styles.libraryRow}
-                    contentContainerStyle={styles.libraryList}
-                    scrollEnabled
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator
-                    renderItem={({ item }) => {
-                      const selected = form.selectedContentId === item.id;
-                      const thumb = item.thumbnailUrl ?? item.imageUrl ?? item.url ?? undefined;
-                      const badgeText =
-                        item.type === 'Video'
-                          ? formatDuration(item.duration)
-                          : imageSizes[item.id]
-                            ? `${imageSizes[item.id].width}×${imageSizes[item.id].height}`
-                            : '…';
-                      return (
-                        <Pressable
-                          onPress={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              selectedContentId: item.id,
-                              selectedContentType: item.type as 'Graphic' | 'Video',
-                              libraryDuration:
-                                item.type === 'Graphic'
-                                  ? prev.libraryDuration || String(item.duration ?? 15)
-                                  : prev.libraryDuration,
-                              error: null,
-                            }))
-                          }
-                          style={[styles.libraryCard, selected && styles.libraryCardSelected]}
-                        >
-                          {thumb ? (
-                            <Image
-                              source={{ uri: resolveMediaUrl(thumb) }}
-                              style={styles.libraryThumb}
-                              onLoad={({ source: { width, height } }) => {
-                                if (item.type !== 'Graphic') return;
-                                setImageSizes((prev) => prev[item.id] ? prev : { ...prev, [item.id]: { width, height } });
-                              }}
-                            />
-                          ) : (
-                            <View style={styles.libraryThumbPlaceholder}>
-                              <MaterialCommunityIcons
-                                name={item.type === 'Video' ? 'video' : 'image'}
-                                size={24}
-                                color={palette.goldDeep}
-                              />
-                            </View>
-                          )}
-                          <View style={styles.libraryBadge}>
-                            <Text style={styles.libraryBadgeText}>{badgeText}</Text>
-                          </View>
-                          <Text style={styles.libraryName} numberOfLines={1}>
-                            {item.name ?? `#${item.id}`}
-                          </Text>
-                          <Text style={styles.libraryMeta}>{item.type === 'Video' ? 'Видео' : 'Картинка'}</Text>
-                        </Pressable>
-                      );
-                    }}
-                  />
+          }
+          onDragEnd={({ data }) => {
+            setItems(normalizeOrder(data));
+            setDirty(true);
+            setSuccess(null);
+          }}
+          renderItem={({ item, drag, isActive }) => (
+            <ScaleDecorator>
+              <View style={[styles.playlistRow, isActive && styles.playlistRowActive]}>
+                <MediaThumbnail uri={item.thumbnailUrl} type={item.type} style={styles.thumbnail} />
+                <View style={styles.itemCopy}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.itemMeta}>
+                    {item.type === 'Video' ? 'Видео' : 'Изображение'} · {formatDuration(item.duration)}
+                  </Text>
                 </View>
-                {form.selectedContentType === 'Graphic' ? (
-                  <TextInput
-                    label="Длительность (сек)"
-                    value={form.libraryDuration}
-                    keyboardType="numeric"
-                    onChangeText={(value) => setForm((prev) => ({ ...prev, libraryDuration: value }))}
-                    style={styles.input}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Переместить ${item.title}`}
+                  onLongPress={drag}
+                  onPressIn={drag}
+                  style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}
+                >
+                  <MaterialCommunityIcons name="drag-vertical" color={palette.muted} size={25} />
+                </Pressable>
+                <Menu
+                  visible={itemMenuId === item.submissionId}
+                  onDismiss={() => setItemMenuId(null)}
+                  contentStyle={styles.itemMenu}
+                  anchor={
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Действия с ${item.title}`}
+                      onPress={() => setItemMenuId(item.submissionId)}
+                      style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}
+                    >
+                      <MaterialCommunityIcons name="dots-vertical" color={palette.cream} size={23} />
+                    </Pressable>
+                  }
+                >
+                  <Menu.Item
+                    leadingIcon="trash-can-outline"
+                    title="Удалить"
+                    onPress={() => requestDelete(item)}
                   />
-                ) : null}
-              </>
-            )}
-            <View style={styles.modalActions}>
-              <Button mode="text" onPress={() => setForm({ ...emptyForm, open: false })}>
-                Отмена
-              </Button>
-              <Button mode="contained" onPress={() => createItemMutation.mutate()} loading={createItemMutation.isPending}>
-                Добавить
-              </Button>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+                </Menu>
+              </View>
+            </ScaleDecorator>
+          )}
+        />
 
-      <Modal visible={applyModalOpen} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setApplyModalOpen(false)}>
-          <Pressable style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Применить плейлист другого экрана</Text>
-            {availableScreens.length === 0 ? (
-              <Text style={styles.mediaMeta}>Других экранов пока нет.</Text>
+        <View style={styles.footer}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!items.length || !dirty || saveMutation.isPending}
+            onPress={save}
+            style={({ pressed }) => [
+              styles.saveButton,
+              (!items.length || !dirty || saveMutation.isPending) && styles.saveButtonDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            {saveMutation.isPending ? (
+              <ActivityIndicator color={palette.ink} size="small" />
             ) : (
-              <FlatList
-                data={availableScreens}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={[styles.applyScreenRow, sourceScreenId === item.id && styles.libraryCardSelected]}
-                    onPress={() => setSourceScreenId(item.id)}
-                  >
-                    <Text style={styles.mediaTitle}>{item.name}</Text>
-                    <Text style={styles.mediaMeta}>ID: {item.id}</Text>
-                  </Pressable>
-                )}
-              />
+              <Text style={styles.saveText}>Сохранить</Text>
             )}
-            <View style={styles.modalActions}>
-              <Button mode="text" onPress={() => setApplyModalOpen(false)}>
-                Отмена
-              </Button>
-              <Button
-                mode="contained"
-                disabled={!sourceScreenId}
-                loading={applyPlaylistMutation.isPending}
-                onPress={() => applyPlaylistMutation.mutate()}
-              >
-                Применить
-              </Button>
-            </View>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </AppShell>
+        </View>
+      </View>
+    </GalleryShell>
+  );
+}
+
+function MessageBanner({ text, danger = false }: { text: string; danger?: boolean }) {
+  return (
+    <View style={[styles.messageBanner, danger && styles.messageBannerDanger]}>
+      <MaterialCommunityIcons
+        name={danger ? 'alert-circle-outline' : 'check-circle-outline'}
+        color={danger ? palette.danger : palette.success}
+        size={18}
+      />
+      <Text style={[styles.messageText, danger && styles.messageTextDanger]}>{text}</Text>
+    </View>
+  );
+}
+
+function StateScreen({
+  title,
+  message,
+  loading = false,
+  onRetry,
+}: {
+  title: string;
+  message: string;
+  loading?: boolean;
+  onRetry?: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <GalleryShell title={title} showBack onBackPress={() => router.replace('/')}>
+      <View style={styles.stateCard}>
+        {loading ? (
+          <ActivityIndicator color={palette.gold} size="large" />
+        ) : (
+          <MaterialCommunityIcons name="monitor-off" color={palette.danger} size={38} />
+        )}
+        <Text style={styles.emptyTitle}>{title}</Text>
+        <Text style={styles.emptyText}>{message}</Text>
+        {onRetry ? (
+          <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
+            <Text style={styles.retryText}>Повторить</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </GalleryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  headerActions: {
+  editor: { flex: 1, minHeight: 0 },
+  plusButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.gold,
+  },
+  addMenu: { backgroundColor: palette.cream },
+  itemMenu: { backgroundColor: palette.cream },
+  list: { flex: 1 },
+  listContent: { gap: 10, paddingTop: 16, paddingBottom: 18 },
+  emptyListContent: { flexGrow: 1, justifyContent: 'center' },
+  playlistRow: {
+    minHeight: 92,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  cardTitle: {
-    fontFamily: brandFonts.heading,
-    fontSize: 20,
-    color: palette.charcoal,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#FFFDF9',
-    marginBottom: 12,
-  },
-  listContent: {
-    gap: 12,
-  },
-  sectionActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  mediaCard: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 12,
+    alignItems: 'center',
+    gap: 13,
+    padding: 10,
     borderRadius: 16,
-    backgroundColor: '#FFFDF9',
     borderWidth: 1,
-    borderColor: '#F1E6D6',
-    alignItems: 'center',
+    borderColor: '#2F323A',
+    backgroundColor: palette.panel,
   },
-  mediaCardActive: {
-    borderColor: palette.goldDeep,
-    backgroundColor: '#FFF7E5',
+  playlistRowActive: {
+    borderColor: palette.gold,
+    backgroundColor: palette.panelRaised,
+    boxShadow: '0 14px 30px rgba(0, 0, 0, 0.34)',
   },
-  dragHandle: {
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-  },
-  thumbnail: {
-    width: 96,
-    height: 72,
-    borderRadius: 12,
-    backgroundColor: '#F3EDE3',
-  },
-  thumbnailPlaceholder: {
-    width: 96,
-    height: 72,
-    borderRadius: 12,
-    backgroundColor: '#F3EDE3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mediaInfo: {
-    flex: 1,
-  },
-  mediaTitle: {
-    fontFamily: brandFonts.heading,
-    fontSize: 16,
-    color: palette.charcoal,
-  },
-  mediaMeta: {
-    fontFamily: brandFonts.body,
-    color: palette.slate,
-    marginTop: 4,
-  },
-  durationInput: {
-    backgroundColor: '#FFFDF9',
-    marginTop: 8,
-  },
-  mediaActions: {
-    alignItems: 'flex-end',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(8, 8, 8, 0.55)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
+  thumbnail: { width: 112, height: 70, borderRadius: 11 },
+  itemCopy: { minWidth: 0, flex: 1, gap: 5 },
+  itemTitle: { color: palette.cream, fontFamily: brandFonts.bodyEmphasis, fontSize: 15 },
+  itemMeta: { color: palette.muted, fontFamily: brandFonts.body, fontSize: 12 },
+  rowAction: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    padding: 20,
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalTitle: {
-    fontFamily: brandFonts.heading,
-    fontSize: 20,
-    color: palette.charcoal,
+  footer: {
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#2A2D34',
   },
-  modalTypeRow: {
+  saveButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: palette.gold,
+  },
+  saveButtonDisabled: { opacity: 0.36 },
+  saveText: { color: palette.ink, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
+  messageBanner: {
+    marginTop: 12,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    flexWrap: 'wrap',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 8,
-  },
-  errorText: {
-    fontFamily: brandFonts.bodyEmphasis,
-    color: '#B42318',
-  },
-  libraryRow: {
-    gap: 12,
-    marginBottom: 12,
-  },
-  libraryList: {
-    paddingVertical: 8,
-  },
-  libraryWrapper: {
-    maxHeight: 480,
-    paddingHorizontal: 4,
-  },
-  libraryCard: {
-    flex: 1,
-    backgroundColor: '#FFFDF9',
-    borderWidth: 1,
-    borderColor: '#F1E6D6',
+    paddingHorizontal: 13,
+    paddingVertical: 10,
     borderRadius: 12,
-    padding: 8,
-    gap: 6,
+    backgroundColor: 'rgba(105, 227, 69, 0.1)',
   },
-  libraryCardSelected: {
-    borderColor: palette.goldDeep,
-    backgroundColor: '#FFF7E5',
+  messageBannerDanger: { backgroundColor: 'rgba(255, 56, 71, 0.12)' },
+  messageText: { flex: 1, color: palette.success, fontFamily: brandFonts.body, fontSize: 12 },
+  messageTextDanger: { color: palette.danger },
+  progressBanner: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: palette.panelRaised,
   },
-  libraryThumb: {
-    width: '100%',
-    aspectRatio: 4 / 3,
-    borderRadius: 8,
-    backgroundColor: '#F3EDE3',
+  progressText: { color: palette.cream, fontFamily: brandFonts.body, fontSize: 12 },
+  emptyState: { alignItems: 'center', gap: 8, padding: 28 },
+  emptyTitle: { color: palette.cream, fontFamily: brandFonts.bodyEmphasis, fontSize: 18 },
+  emptyText: {
+    maxWidth: 420,
+    color: palette.muted,
+    fontFamily: brandFonts.body,
+    fontSize: 13,
+    textAlign: 'center',
   },
-  libraryThumbPlaceholder: {
-    width: '100%',
-    aspectRatio: 4 / 3,
-    borderRadius: 8,
-    backgroundColor: '#F3EDE3',
+  stateCard: {
+    minHeight: 360,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2A2D34',
+    backgroundColor: palette.panel,
   },
-  libraryBadge: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  libraryBadgeText: {
-    fontFamily: brandFonts.body,
-    color: '#FFFDF9',
-    fontSize: 12,
-  },
-  libraryName: {
-    fontFamily: brandFonts.bodyEmphasis,
-    color: palette.charcoal,
-  },
-  libraryMeta: {
-    fontFamily: brandFonts.body,
-    color: palette.slate,
-    fontSize: 12,
-  },
-  applyScreenRow: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderColor: '#F1E6D6',
-  },
-  previewOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
+  retryButton: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: palette.gold },
+  retryText: { color: palette.ink, fontFamily: brandFonts.bodyEmphasis, fontSize: 13 },
+  pressed: { opacity: 0.7 },
 });

@@ -1,194 +1,228 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, HelperText, RadioButton, Text } from 'react-native-paper';
-import { TextInput } from '../components/TextInput';
-import { useRouter } from 'expo-router';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { Button, HelperText, Text } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { AppShell } from '../components/AppShell';
-import { BrandCard } from '../components/BrandCard';
-import { EmptyState } from '../components/EmptyState';
-import { apiClient } from '../lib/api';
-import { buildGroupTree, flattenGroupTree } from '../lib/groupTree';
-import { brandFonts, palette } from '../theme';
+import { TextInput } from '../components/TextInput';
+import { GalleryShell } from '../features/media-points/GalleryShell';
+import { useAddScreenByCode } from '../features/media-points/hooks';
 import { useProtectedRoute } from '../hooks/useProtectedRoute';
+import { brandFonts, palette } from '../theme';
 
 function extractCode(value: string) {
   if (!value) return '';
   try {
     if (value.includes('/pair')) {
       const url = new URL(value);
-      const code = url.searchParams.get('code');
-      return code?.toUpperCase() ?? '';
+      return url.searchParams.get('code')?.trim().toUpperCase() ?? '';
     }
   } catch {
-    // ignore URL parse errors
+    // Continue with the plain-text parser.
   }
 
-  const match = value.match(/code=([A-Z0-9]+)/i);
-  if (match) return match[1].toUpperCase();
+  const queryCode = value.match(/code=([A-Z0-9-]+)/i)?.[1];
+  return (queryCode ?? value).trim().toUpperCase();
+}
 
-  return value.trim().toUpperCase();
+function parseOrganizationId(value?: string | string[]) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const parsed = rawValue ? Number(rawValue) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export default function ScanScreen() {
   useProtectedRoute();
   const router = useRouter();
+  const params = useLocalSearchParams<{ organizationId?: string; organizationName?: string }>();
+  const organizationId = parseOrganizationId(params.organizationId);
+  const organizationName = Array.isArray(params.organizationName)
+    ? params.organizationName[0]
+    : params.organizationName;
   const [permission, requestPermission] = useCameraPermissions();
   const [manualCode, setManualCode] = useState('');
-  const [scanError, setScanError] = useState<string | null>(null);
   const [scanned, setScanned] = useState(false);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const addMutation = useAddScreenByCode();
 
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
-
-  const availableGroups = useMemo(
-    () => (groupsQuery.data ?? []).filter((group) => !group.systemGroup),
-    [groupsQuery.data],
-  );
-  const flatGroups = useMemo(
-    () => flattenGroupTree(buildGroupTree(availableGroups)),
-    [availableGroups],
-  );
-  const effectiveSelectedGroupId = selectedGroupId ?? flatGroups[0]?.group.id ?? null;
-
-  const pairMutation = useMutation({
-    mutationFn: (code: string) => {
-      if (!availableGroups.length) throw new Error('Сначала создайте организацию');
-      if (!effectiveSelectedGroupId) throw new Error('Выберите организацию');
-
-      const name = `Экран ${code}`;
-      return apiClient.pairDevice({
-        code,
-        screen: {
-          name,
-          group_id: effectiveSelectedGroupId,
-        },
-      });
-    },
-    onSuccess: (data) => {
-      router.replace(`/screens/${data.screen.id}`);
-    },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Не удалось привязать экран';
-      setScanError(message);
-      setScanned(false);
-    },
-  });
-
-  const handleCode = (value: string) => {
-    const code = extractCode(value);
+  const addCode = (rawCode: string) => {
+    const code = extractCode(rawCode);
     if (!code) {
-      setScanError('Не удалось распознать код');
+      setLocalError('Не удалось распознать код');
       return;
     }
-    setScanError(null);
+
+    setLocalError(null);
     setScanned(true);
-    pairMutation.mutate(code);
+    addMutation.mutate(
+      { code, organizationId },
+      {
+        onSuccess: () => router.replace('/'),
+        onError: () => setScanned(false),
+      },
+    );
   };
 
-  if (!availableGroups.length) {
-    return (
-      <AppShell title="Сканирование QR" subtitle="Нужна организация для создания экрана.">
-        <EmptyState
-          title="Нет организаций"
-          subtitle="Создайте организацию, чтобы привязать первый экран."
-          actionLabel="Создать организацию"
-          onAction={() => router.push('/groups')}
-        />
-      </AppShell>
-    );
-  }
+  const mutationError = addMutation.isError && addMutation.error instanceof Error
+    ? addMutation.error.message
+    : null;
 
   return (
-    <AppShell title="Сканирование QR" subtitle="Наведите камеру на код с плеера.">
-      <BrandCard>
-        <Text style={styles.cardTitle}>Сканировать</Text>
-        <Text style={styles.cardText}>Организация для нового экрана</Text>
-        <RadioButton.Group
-                value={effectiveSelectedGroupId ? String(effectiveSelectedGroupId) : ''}
-          onValueChange={(value) => setSelectedGroupId(Number(value))}
-        >
-          {flatGroups.map(({ group, depth }) => (
-            <RadioButton.Item
-              key={group.id}
-              label={`${'—'.repeat(depth)} ${group.name}`}
-              value={String(group.id)}
-              labelStyle={styles.radioLabel}
-            />
-          ))}
-        </RadioButton.Group>
+    <GalleryShell
+      showBack
+      title="Сканировать QR"
+      subtitle={organizationName
+        ? `Экран будет добавлен в ${organizationName}`
+        : 'Экран появится в верхней секции без названия'}
+    >
+      <View style={styles.card}>
+        <Text style={styles.title}>Наведите камеру на QR-код плеера</Text>
         {!permission ? (
-          <Text style={styles.cardText}>Запрашиваем доступ к камере…</Text>
+          <View style={styles.permissionState}>
+            <Text style={styles.hint}>Проверяем доступ к камере…</Text>
+          </View>
         ) : !permission.granted ? (
-          <View>
-            <Text style={styles.cardText}>Нужен доступ к камере для сканирования QR‑кода.</Text>
-            <Button mode="contained" onPress={requestPermission}>
+          <View style={styles.permissionState}>
+            <Text style={styles.hint}>Разрешите доступ к камере, чтобы считать код с экрана.</Text>
+            <Button
+              mode="contained"
+              buttonColor={palette.gold}
+              textColor={palette.ink}
+              onPress={requestPermission}
+            >
               Разрешить камеру
             </Button>
           </View>
         ) : (
-          <View style={styles.cameraContainer}>
+          <View style={styles.cameraFrame}>
             <CameraView
               style={styles.camera}
-              onBarcodeScanned={(event) => {
-                if (!scanned) {
-                  handleCode(event.data);
-                }
-              }}
+              facing="back"
+              active={!scanned}
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={scanned ? undefined : (event) => addCode(event.data)}
             />
+            <View style={styles.scanGuide} pointerEvents="none" />
           </View>
         )}
-        <Text style={styles.cardText}>Не получается сканировать? Введите код вручную.</Text>
+
+        <Text style={styles.manualTitle}>Или введите код вручную</Text>
         <TextInput
-          label="Код"
+          mode="outlined"
+          label="Код экрана"
           value={manualCode}
-          onChangeText={setManualCode}
+          onChangeText={(value) => {
+            setManualCode(value.toUpperCase());
+            setLocalError(null);
+            addMutation.reset();
+          }}
           autoCapitalize="characters"
+          autoCorrect={false}
+          textColor={palette.cream}
+          outlineColor="#4A4D55"
+          activeOutlineColor={palette.gold}
           style={styles.input}
         />
-        <Button mode="outlined" onPress={() => handleCode(manualCode)} disabled={!manualCode || pairMutation.isPending}>
-          Привязать вручную
-        </Button>
-        {scanError ? <HelperText type="error">{scanError}</HelperText> : null}
-        {process.env.EXPO_OS === 'web' ? (
-          <HelperText type="info">На web доступ к камере работает только по HTTPS или на localhost.</HelperText>
+        {localError || mutationError ? (
+          <HelperText type="error" visible style={styles.error}>
+            {localError ?? mutationError}
+          </HelperText>
         ) : null}
-      </BrandCard>
-    </AppShell>
+        <Button
+          mode="contained"
+          buttonColor={palette.gold}
+          textColor={palette.ink}
+          contentStyle={styles.buttonContent}
+          disabled={!manualCode.trim() || addMutation.isPending}
+          loading={addMutation.isPending}
+          onPress={() => addCode(manualCode)}
+        >
+          Добавить
+        </Button>
+        {process.env.EXPO_OS === 'web' ? (
+          <Text style={styles.webHint}>На web камера доступна только через HTTPS или localhost.</Text>
+        ) : null}
+      </View>
+    </GalleryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  cardTitle: {
-    fontFamily: brandFonts.heading,
-    fontSize: 20,
-    color: palette.charcoal,
-    marginBottom: 8,
-  },
-  cardText: {
-    fontFamily: brandFonts.body,
-    color: palette.slate,
-    marginBottom: 8,
-  },
-  radioLabel: {
-    fontFamily: brandFonts.body,
-    fontSize: 14,
-  },
-  cameraContainer: {
+  card: {
     width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+    gap: 14,
+    padding: 22,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#2E3138',
+    backgroundColor: palette.panel,
+    boxShadow: '0 18px 48px rgba(0, 0, 0, 0.25)',
+  },
+  title: {
+    color: palette.cream,
+    fontFamily: brandFonts.bodyEmphasis,
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  hint: {
+    color: palette.muted,
+    fontFamily: brandFonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  permissionState: {
+    minHeight: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 24,
+    borderRadius: 18,
+    backgroundColor: palette.panelRaised,
+  },
+  cameraFrame: {
+    width: '100%',
+    maxHeight: 520,
     aspectRatio: 1,
-    borderRadius: 16,
+    alignSelf: 'center',
     overflow: 'hidden',
-    marginBottom: 12,
-    backgroundColor: '#0B0B0D',
+    borderRadius: 20,
+    backgroundColor: '#050607',
   },
   camera: {
     flex: 1,
   },
+  scanGuide: {
+    position: 'absolute',
+    top: '20%',
+    left: '20%',
+    right: '20%',
+    bottom: '20%',
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: palette.gold,
+  },
+  manualTitle: {
+    color: palette.cream,
+    fontFamily: brandFonts.bodyEmphasis,
+    fontSize: 14,
+    marginTop: 4,
+  },
   input: {
-    backgroundColor: '#FFFDF9',
-    marginBottom: 12,
+    backgroundColor: palette.panelRaised,
+  },
+  error: {
+    paddingHorizontal: 0,
+  },
+  buttonContent: {
+    minHeight: 48,
+  },
+  webHint: {
+    color: palette.muted,
+    fontFamily: brandFonts.body,
+    fontSize: 11,
+    textAlign: 'center',
   },
 });

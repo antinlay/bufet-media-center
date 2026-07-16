@@ -36,7 +36,7 @@ export default function RootLayout() {
           <AuthProvider>
             <PaperProvider theme={lightTheme}>
               <Stack screenOptions={{ headerShown: false }} />
-              <StatusBar style="dark" />
+              <StatusBar style="light" />
             </PaperProvider>
           </AuthProvider>
         </QueryClientProvider>

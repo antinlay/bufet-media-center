@@ -1,167 +1,165 @@
-import { useMemo, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Button, HelperText, RadioButton, Text } from 'react-native-paper';
-import { TextInput } from '../components/TextInput';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Button, HelperText, Text } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../lib/api';
-import { useProtectedRoute } from '../hooks/useProtectedRoute';
-import { AppShell } from '../components/AppShell';
-import { BrandCard } from '../components/BrandCard';
-import { brandFonts, palette } from '../theme';
-import { buildGroupTree, flattenGroupTree } from '../lib/groupTree';
 
-export default function PairScreen() {
+import { TextInput } from '../components/TextInput';
+import { GalleryShell } from '../features/media-points/GalleryShell';
+import { useAddScreenByCode } from '../features/media-points/hooks';
+import { useProtectedRoute } from '../hooks/useProtectedRoute';
+import { brandFonts, palette } from '../theme';
+
+function parseOrganizationId(value?: string | string[]) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const parsed = rawValue ? Number(rawValue) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export default function AddScreen() {
   useProtectedRoute();
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const initialCode = typeof params.code === 'string' ? params.code : '';
-  const [code, setCode] = useState(() => initialCode);
-  const [error, setError] = useState<string | null>(null);
-  const [pairMode, setPairMode] = useState<'new' | 'existing'>('new');
-  const [name, setName] = useState('');
-  const [groupId, setGroupId] = useState<number | null>(null);
-  const [screenId, setScreenId] = useState<number | null>(null);
-  const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{
+    code?: string;
+    organizationId?: string;
+    organizationName?: string;
+  }>();
+  const organizationId = parseOrganizationId(params.organizationId);
+  const organizationName = Array.isArray(params.organizationName)
+    ? params.organizationName[0]
+    : params.organizationName;
+  const initialCode = Array.isArray(params.code) ? params.code[0] : params.code;
+  const [code, setCode] = useState(initialCode ?? '');
+  const addMutation = useAddScreenByCode();
 
-  const screensQuery = useQuery({ queryKey: ['screens'], queryFn: ({ signal }) => apiClient.getScreens(signal) });
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
+  const submit = () => {
+    addMutation.mutate(
+      { code, organizationId },
+      { onSuccess: () => router.replace('/') },
+    );
+  };
 
-  const availableGroups = useMemo(() => {
-    return (groupsQuery.data ?? []).filter((group) => !group.systemGroup);
-  }, [groupsQuery.data]);
-  const flatGroups = useMemo(
-    () => flattenGroupTree(buildGroupTree(availableGroups)),
-    [availableGroups],
-  );
-
-  const selectedGroupId = groupId ?? flatGroups[0]?.group.id ?? null;
-
-  const pairMutation = useMutation({
-    mutationFn: () => {
-      if (!code) throw new Error('Код обязателен');
-      if (pairMode === 'existing') {
-        if (!screenId) throw new Error('Выберите экран');
-        return apiClient.pairDevice({ code, screen_id: screenId });
-      }
-      if (!name || !selectedGroupId) {
-        throw new Error('Укажите имя и организацию');
-      }
-      return apiClient.pairDevice({ code, screen: { name, group_id: selectedGroupId } });
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['screens'] });
-      router.replace(`/screens/${data.screen.id}`);
-    },
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : 'Не удалось привязать устройство'),
-  });
+  const openScanner = () => {
+    router.push({
+      pathname: '/scan',
+      params: {
+        ...(organizationId ? { organizationId: String(organizationId) } : {}),
+        ...(organizationName ? { organizationName } : {}),
+      },
+    });
+  };
 
   return (
-    <AppShell
-      title="Привязка экрана"
-      subtitle="Введите код с плеера и назначьте экран в систему."
+    <GalleryShell
+      showBack
+      title="Добавить экран"
+      subtitle={organizationName ? `Организация: ${organizationName}` : 'Без выбранной организации'}
     >
-      <BrandCard>
-        <Text style={styles.cardTitle}>Код привязки</Text>
+      <View style={styles.card}>
+        <View style={styles.qrPlaceholder}>
+          <MaterialCommunityIcons name="qrcode" color={palette.cream} size={84} />
+        </View>
+        <Text style={styles.title}>Введите код экрана</Text>
+        <Text style={styles.hint}>Код берётся из QR-кода, который генерирует плеер на устройстве.</Text>
         <TextInput
-          label="Код"
+          mode="outlined"
+          label="Код экрана"
           value={code}
-          onChangeText={setCode}
+          onChangeText={(value) => {
+            setCode(value.toUpperCase());
+            addMutation.reset();
+          }}
           autoCapitalize="characters"
+          autoCorrect={false}
+          textColor={palette.cream}
+          outlineColor="#4A4D55"
+          activeOutlineColor={palette.gold}
           style={styles.input}
         />
-        <View style={styles.selectorRow}>
-          <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Режим</Text>
-            <RadioButton.Group value={pairMode} onValueChange={(value) => setPairMode(value as 'new' | 'existing')}>
-              <RadioButton.Item label="Создать новый экран" value="new" labelStyle={styles.radioLabel} />
-              <RadioButton.Item label="Привязать к существующему" value="existing" labelStyle={styles.radioLabel} />
-            </RadioButton.Group>
-          </View>
-        </View>
-        {pairMode === 'new' ? (
-          <View style={styles.selectorRow}>
-            <TextInput label="Название экрана" value={name} onChangeText={setName} style={styles.input} />
-            <View style={styles.selector}>
-              <Text style={styles.selectorTitle}>Организация</Text>
-              <RadioButton.Group
-                value={selectedGroupId ? String(selectedGroupId) : ''}
-                onValueChange={(value) => setGroupId(Number(value))}
-              >
-                {flatGroups.map(({ group, depth }) => (
-                  <RadioButton.Item
-                    key={group.id}
-                    label={`${'—'.repeat(depth)} ${group.name}`}
-                    value={String(group.id)}
-                    labelStyle={styles.radioLabel}
-                  />
-                ))}
-              </RadioButton.Group>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.selectorRow}>
-            <View style={styles.selector}>
-              <Text style={styles.selectorTitle}>Экран</Text>
-              <RadioButton.Group
-                value={screenId ? String(screenId) : ''}
-                onValueChange={(value) => setScreenId(Number(value))}
-              >
-                {(screensQuery.data ?? []).map((screen) => (
-                  <RadioButton.Item
-                    key={screen.id}
-                    label={screen.name}
-                    value={String(screen.id)}
-                    labelStyle={styles.radioLabel}
-                  />
-                ))}
-              </RadioButton.Group>
-            </View>
-          </View>
-        )}
-
-        {error ? (
-          <HelperText type="error" visible>
-            {error}
+        {addMutation.isError ? (
+          <HelperText type="error" visible style={styles.error}>
+            {addMutation.error instanceof Error ? addMutation.error.message : 'Не удалось добавить экран'}
           </HelperText>
         ) : null}
-
-        <Button mode="contained" onPress={() => pairMutation.mutate()} loading={pairMutation.isPending}>
-          Привязать
+        <Button
+          mode="contained"
+          buttonColor={palette.gold}
+          textColor={palette.ink}
+          contentStyle={styles.buttonContent}
+          disabled={!code.trim() || addMutation.isPending}
+          loading={addMutation.isPending}
+          onPress={submit}
+        >
+          Добавить
         </Button>
-      </BrandCard>
-    </AppShell>
+        <Button
+          mode="outlined"
+          icon="qrcode-scan"
+          textColor={palette.cream}
+          style={styles.scanButton}
+          contentStyle={styles.scanButtonContent}
+          onPress={openScanner}
+        >
+          Сканировать QR
+        </Button>
+      </View>
+    </GalleryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  cardTitle: {
-    fontFamily: brandFonts.heading,
+  card: {
+    width: '100%',
+    maxWidth: 620,
+    alignSelf: 'center',
+    alignItems: 'stretch',
+    gap: 13,
+    padding: 26,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#2E3138',
+    backgroundColor: palette.panel,
+    boxShadow: '0 18px 48px rgba(0, 0, 0, 0.25)',
+  },
+  qrPlaceholder: {
+    width: 132,
+    height: 132,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#373A42',
+    backgroundColor: palette.panelRaised,
+  },
+  title: {
+    color: palette.cream,
+    fontFamily: brandFonts.bodyEmphasis,
     fontSize: 20,
-    color: palette.charcoal,
-    marginBottom: 8,
+    textAlign: 'center',
+  },
+  hint: {
+    color: palette.muted,
+    fontFamily: brandFonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   input: {
-    backgroundColor: '#FFFDF9',
-    marginBottom: 12,
+    backgroundColor: palette.panelRaised,
   },
-  selectorRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 12,
+  error: {
+    paddingHorizontal: 0,
   },
-  selector: {
-    flex: 1,
-    minWidth: 220,
+  buttonContent: {
+    minHeight: 50,
   },
-  selectorTitle: {
-    fontFamily: brandFonts.bodyEmphasis,
-    color: palette.slate,
-    marginBottom: 6,
+  scanButton: {
+    borderColor: '#454850',
   },
-  radioLabel: {
-    fontFamily: brandFonts.body,
-    fontSize: 14,
+  scanButtonContent: {
+    minHeight: 44,
   },
 });

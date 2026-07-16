@@ -1,225 +1,116 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
-import { Button, RadioButton, Text } from 'react-native-paper';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Button, HelperText, Text } from 'react-native-paper';
+import { useRouter } from 'expo-router';
+
 import { TextInput } from '../../components/TextInput';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AppShell } from '../../components/AppShell';
-import { BrandCard } from '../../components/BrandCard';
-import { EmptyState } from '../../components/EmptyState';
-import { Section } from '../../components/Section';
-import { apiClient } from '../../lib/api';
-import { buildGroupTree, flattenGroupTree, type GroupNode } from '../../lib/groupTree';
-import { brandFonts, palette } from '../../theme';
+import { GalleryShell } from '../../features/media-points/GalleryShell';
+import { useCreateOrganization } from '../../features/media-points/hooks';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
-import { useAuth } from '../../providers/AuthProvider';
+import { brandFonts, palette } from '../../theme';
 
-function useIsMobile() {
-  const getInitialWidth = () => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 980;
-    }
-    return false;
-  };
-  
-  const [isMobile, setIsMobile] = useState(getInitialWidth);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 980);
-    };
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  return isMobile;
-}
-
-export default function GroupsScreen() {
+export default function AddOrganizationScreen() {
   useProtectedRoute();
-  const isMobile = useIsMobile();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const groupsQuery = useQuery({ queryKey: ['groups'], queryFn: ({ signal }) => apiClient.getGroups(signal) });
-
+  const router = useRouter();
+  const createMutation = useCreateOrganization();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [parentId, setParentId] = useState<number | null>(null);
 
-  const createMutation = useMutation({
-    mutationFn: () => {
-      if (!name) throw new Error('Название обязательно');
-      return apiClient.createGroup({ name, description: description || undefined, parent_id: parentId });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
-      setName('');
-      setDescription('');
-      setParentId(null);
-    },
-  });
-
-  const groups = (groupsQuery.data ?? []).filter((group) => !group.systemGroup);
-  const groupTree = useMemo(() => buildGroupTree(groups), [groups]);
-  const flatGroups = useMemo(() => flattenGroupTree(groupTree), [groupTree]);
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiClient.deleteGroup(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['groups'] }),
-    onError: (error: Error) => {
-      Alert.alert('Ошибка', error.message || 'Не удалось удалить группу');
-    },
-  });
-
-  const groupRowStyle = {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    ...(isMobile && {
-      flexDirection: 'column' as const,
-      alignItems: 'flex-start' as const,
-    }),
+  const submit = () => {
+    createMutation.mutate(
+      { name, description },
+      { onSuccess: () => router.replace('/') },
+    );
   };
 
   return (
-    <AppShell
-      title="Организации"
-      subtitle="Организуйте экраны и ленты по владельцам и отделам."
-      actions={
-        <Button mode="contained" onPress={() => queryClient.invalidateQueries({ queryKey: ['groups'] })}>
-          Обновить
-        </Button>
-      }
+    <GalleryShell
+      showBack
+      title="Добавить организацию"
+      subtitle="Новая секция появится на главном экране."
     >
-      <BrandCard>
-        <Text style={styles.cardTitle}>Новая организация</Text>
-        <TextInput label="Название" value={name} onChangeText={setName} style={styles.input} />
-        <TextInput label="Описание" value={description} onChangeText={setDescription} style={styles.input} />
-        <Text style={styles.selectorTitle}>Родитель</Text>
-        <RadioButton.Group
-          value={parentId ? String(parentId) : 'none'}
-          onValueChange={(value) => setParentId(value === 'none' ? null : Number(value))}
-        >
-          <RadioButton.Item label="Без родителя" value="none" labelStyle={styles.radioLabel} />
-          {flatGroups.map(({ group, depth }) => (
-            <RadioButton.Item
-              key={group.id}
-              label={`${'—'.repeat(depth)} ${group.name}`}
-              value={String(group.id)}
-              labelStyle={styles.radioLabel}
-            />
-          ))}
-        </RadioButton.Group>
-        <Button mode="contained" onPress={() => createMutation.mutate()} loading={createMutation.isPending}>
-          Создать организацию
-        </Button>
-      </BrandCard>
-
-      <Section title="Список организаций" subtitle="Системные организации отмечены отдельно.">
-        {groups.length === 0 ? (
-          <EmptyState title="Организаций нет" subtitle="Создайте первую организацию и добавьте участников." />
-        ) : (
-          groupTree.map((node) => (
-            <GroupNodeCard
-              key={node.group.id}
-              node={node}
-              depth={0}
-              canDelete={Boolean(user?.systemAdmin)}
-              onDelete={(groupId, name) => {
-                Alert.alert('Удалить организацию?', name, [
-                  { text: 'Отмена', style: 'cancel' },
-                  {
-                    text: 'Удалить',
-                    style: 'destructive',
-                    onPress: () => deleteMutation.mutate(groupId),
-                  },
-                ]);
-              }}
-              groupRowStyle={groupRowStyle}
-            />
-          ))
-        )}
-      </Section>
-    </AppShell>
-  );
-}
-
-function GroupNodeCard({
-  node,
-  depth,
-  canDelete,
-  onDelete,
-  groupRowStyle,
-}: {
-  node: GroupNode;
-  depth: number;
-  canDelete: boolean;
-  onDelete: (groupId: number, name: string) => void;
-  groupRowStyle: object;
-}) {
-  return (
-    <>
-      <BrandCard style={{ marginLeft: depth * 16 }}>
-        <View style={groupRowStyle}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.groupName}>{node.group.name}</Text>
-            <Text style={styles.groupMeta}>{node.group.description ?? 'Описание не задано'}</Text>
-          </View>
-          {canDelete ? (
-            <Button mode="text" onPress={() => onDelete(node.group.id, node.group.name)}>
-              Удалить
-            </Button>
-          ) : null}
-        </View>
-      </BrandCard>
-      {node.children.map((child) => (
-        <GroupNodeCard
-          key={child.group.id}
-          node={child}
-          depth={depth + 1}
-          canDelete={canDelete}
-          onDelete={onDelete}
-          groupRowStyle={groupRowStyle}
+      <View style={styles.card}>
+        <Text style={styles.title}>Новая организация</Text>
+        <Text style={styles.hint}>Укажите название, по которому команда узнает эту медиа-точку.</Text>
+        <TextInput
+          mode="outlined"
+          label="Название"
+          value={name}
+          onChangeText={(value) => {
+            setName(value);
+            createMutation.reset();
+          }}
+          autoFocus
+          textColor={palette.cream}
+          outlineColor="#3A3D45"
+          activeOutlineColor={palette.gold}
+          style={styles.input}
         />
-      ))}
-    </>
+        <TextInput
+          mode="outlined"
+          label="Описание (необязательно)"
+          value={description}
+          onChangeText={setDescription}
+          textColor={palette.cream}
+          outlineColor="#3A3D45"
+          activeOutlineColor={palette.gold}
+          style={styles.input}
+        />
+        {createMutation.isError ? (
+          <HelperText type="error" visible style={styles.error}>
+            {createMutation.error instanceof Error
+              ? createMutation.error.message
+              : 'Не удалось создать организацию'}
+          </HelperText>
+        ) : null}
+        <Button
+          mode="contained"
+          buttonColor={palette.gold}
+          textColor={palette.ink}
+          contentStyle={styles.buttonContent}
+          disabled={!name.trim() || createMutation.isPending}
+          loading={createMutation.isPending}
+          onPress={submit}
+        >
+          Добавить
+        </Button>
+      </View>
+    </GalleryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  cardTitle: {
-    fontFamily: brandFonts.heading,
+  card: {
+    width: '100%',
+    maxWidth: 620,
+    alignSelf: 'center',
+    gap: 14,
+    padding: 24,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#2E3138',
+    backgroundColor: palette.panel,
+    boxShadow: '0 18px 48px rgba(0, 0, 0, 0.25)',
+  },
+  title: {
+    color: palette.cream,
+    fontFamily: brandFonts.bodyEmphasis,
     fontSize: 20,
-    color: palette.charcoal,
-    marginBottom: 8,
+  },
+  hint: {
+    color: palette.muted,
+    fontFamily: brandFonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 4,
   },
   input: {
-    backgroundColor: '#FFFDF9',
-    marginBottom: 12,
+    backgroundColor: palette.panelRaised,
   },
-  selectorTitle: {
-    fontFamily: brandFonts.bodyEmphasis,
-    color: palette.slate,
-    marginBottom: 6,
+  error: {
+    paddingHorizontal: 0,
   },
-  radioLabel: {
-    fontFamily: brandFonts.body,
-    fontSize: 14,
-  },
-  groupName: {
-    fontFamily: brandFonts.heading,
-    fontSize: 18,
-    color: palette.charcoal,
-  },
-  groupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  groupMeta: {
-    fontFamily: brandFonts.body,
-    color: palette.slate,
-    marginTop: 4,
+  buttonContent: {
+    minHeight: 48,
   },
 });
