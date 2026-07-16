@@ -49,17 +49,17 @@ class Api::V1::BaseController < ActionController::API
 
   def encode_jwt(payload)
     header = { alg: "HS256", typ: "JWT" }
-    segments = [header, payload].map { |part| base64_url_encode(part.to_json) }
+    segments = [ header, payload ].map { |part| base64_url_encode(part.to_json) }
     signing_input = segments.join(".")
     signature = base64_url_encode(OpenSSL::HMAC.digest("sha256", jwt_secret, signing_input))
-    [signing_input, signature].join(".")
+    [ signing_input, signature ].join(".")
   end
 
   def decode_jwt(token)
     header_segment, payload_segment, signature_segment = token.to_s.split(".")
-    raise JwtError, "Invalid token" if [header_segment, payload_segment, signature_segment].any?(&:blank?)
+    raise JwtError, "Invalid token" if [ header_segment, payload_segment, signature_segment ].any?(&:blank?)
 
-    signing_input = [header_segment, payload_segment].join(".")
+    signing_input = [ header_segment, payload_segment ].join(".")
     expected_signature = base64_url_encode(OpenSSL::HMAC.digest("sha256", jwt_secret, signing_input))
     unless ActiveSupport::SecurityUtils.secure_compare(expected_signature, signature_segment)
       raise JwtError, "Invalid signature"

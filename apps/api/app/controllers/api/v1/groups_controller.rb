@@ -41,8 +41,11 @@ class Api::V1::GroupsController < Api::V1::BaseController
     group = Group.find(params[:id])
     authorize group
 
-    group.destroy
-    head :no_content
+    if group.destroy
+      head :no_content
+    else
+      render json: { message: group.errors.full_messages.to_sentence }, status: :unprocessable_entity
+    end
   end
 
   private

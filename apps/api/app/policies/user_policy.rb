@@ -36,7 +36,7 @@ class UserPolicy < ApplicationPolicy
   end
 
   def destroy?
-    system_admin_only
+    super || can_edit_user?
   end
 
   # System admins can create users through the admin interface

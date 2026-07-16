@@ -26,7 +26,7 @@ class ScreenPolicy < ApplicationPolicy
   end
 
   def destroy?
-    user.present?
+    super || can_destroy?
   end
 
   private

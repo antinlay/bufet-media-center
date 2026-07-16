@@ -116,8 +116,8 @@ class ScreensControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # Check that edit and delete buttons are present
-    assert_select "*", text: "Edit Screen"
-    assert_select "*", text: "Delete Screen"
+    assert_select "a", text: "Edit Screen"
+    assert_select "button", text: "Delete Screen"
   end
 
   test "regular group member should see edit button but not delete button on screen show page" do
@@ -126,10 +126,10 @@ class ScreensControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # Check that edit button is present (regular members can edit)
-    assert_select "*", text: "Edit Screen"
+    assert_select "a", text: "Edit Screen"
 
     # Check that delete button is NOT present (only admins can delete)
-    assert_select "*", text: "Delete Screen", count: 0
+    assert_select "button", text: "Delete Screen", count: 0
   end
 
   test "non-member should not see edit or delete buttons on screen show page" do
@@ -138,8 +138,8 @@ class ScreensControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # Check that edit and delete buttons are NOT present
-    assert_select "*", text: "Edit Screen", count: 0
-    assert_select "*", text: "Delete Screen", count: 0
+    assert_select "a", text: "Edit Screen", count: 0
+    assert_select "button", text: "Delete Screen", count: 0
   end
 
   test "signed out user should not see edit or delete buttons on screen show page" do
@@ -149,8 +149,8 @@ class ScreensControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # Check that edit and delete buttons are NOT present
-    assert_select "*", text: "Edit Screen", count: 0
-    assert_select "*", text: "Delete Screen", count: 0
+    assert_select "a", text: "Edit Screen", count: 0
+    assert_select "button", text: "Delete Screen", count: 0
   end
 
   test "admin should see new screen button on index page" do

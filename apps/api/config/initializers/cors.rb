@@ -10,7 +10,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
     resource "/api/*",
       headers: :any,
       methods: %i[get post patch put delete options],
-      expose: ["Authorization"]
+      expose: [ "Authorization" ]
   end
 
   if Rails.env.development?
@@ -19,7 +19,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
       resource "/api/*",
         headers: :any,
         methods: %i[get post patch put delete options],
-        expose: ["Authorization"]
+        expose: [ "Authorization" ]
     end
   end
 end

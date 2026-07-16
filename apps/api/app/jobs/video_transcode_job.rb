@@ -5,8 +5,8 @@ class VideoTranscodeJob < ApplicationJob
     video = Video.find_by(id: video_id)
     return unless video&.file&.attached?
 
-    tmp_mp4 = Tempfile.new(["concerto-video-", ".mp4"], binmode: true)
-    tmp_poster = Tempfile.new(["concerto-video-poster-", ".jpg"], binmode: true)
+    tmp_mp4 = Tempfile.new([ "concerto-video-", ".mp4" ], binmode: true)
+    tmp_poster = Tempfile.new([ "concerto-video-poster-", ".jpg" ], binmode: true)
 
     begin
       ffmpeg = ENV.fetch("FFMPEG_PATH", "ffmpeg")
