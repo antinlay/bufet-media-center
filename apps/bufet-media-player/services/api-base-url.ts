@@ -38,6 +38,10 @@ function isBadDefault(url: string): boolean {
   return false;
 }
 
+function isLocalWebUrl(url: string): boolean {
+  return process.env.EXPO_OS === 'web' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url.trim());
+}
+
 function looksLikeHostOnly(value: string): boolean {
   // "192.168.1.10", "myhost.local:3000"
   return !/^https?:\/\//i.test(value) && /^[a-z0-9.-]+(?::\d+)?$/i.test(value.trim());
@@ -237,7 +241,7 @@ function envApiUrl(): string | null {
 
 function configuredApiUrl(): string | null {
   const env = envApiUrl();
-  if (env && !isBadDefault(env)) return env;
+  if (env && (!isBadDefault(env) || isLocalWebUrl(env))) return normalize(env);
 
   return null;
 }

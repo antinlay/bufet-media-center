@@ -2,6 +2,26 @@ import type { ExpoConfig } from 'expo/config';
 
 export default (): ExpoConfig => {
   const allowHttp = process.env.EXPO_PUBLIC_ALLOW_HTTP === '1';
+  const buildProfile = process.env.EAS_BUILD_PROFILE;
+  const isCompactApkProfile = buildProfile === 'apk' || buildProfile === 'preview';
+  const isReleaseProfile = isCompactApkProfile || buildProfile === 'production';
+
+  const androidBuildProperties = {
+    usesCleartextTraffic: allowHttp,
+    ...(isReleaseProfile
+      ? {
+          enableBundleCompression: true,
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+        }
+      : {}),
+    ...(isCompactApkProfile
+      ? {
+          buildArchs: ['arm64-v8a'],
+          useLegacyPackaging: true,
+        }
+      : {}),
+  };
 
   return {
     name: 'bufet-media-player',
@@ -52,9 +72,7 @@ export default (): ExpoConfig => {
       [
         'expo-build-properties',
         {
-          android: {
-            usesCleartextTraffic: allowHttp,
-          },
+          android: androidBuildProperties,
         },
       ],
     ],
