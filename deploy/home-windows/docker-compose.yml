@@ -1,34 +1,79 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   api:
     build:
       context: ../../apps/api
     environment:
       RAILS_ENV: production
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      CONCERTO_DASHBOARD_URL: ${CONCERTO_DASHBOARD_URL}
-      # If you need to disable SSL enforcement for troubleshooting, set DISABLE_SSL=1 in .env.
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set SECRET_KEY_BASE in .env}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      CONCERTO_DASHBOARD_URL: ${CONCERTO_DASHBOARD_URL:?Set CONCERTO_DASHBOARD_URL in .env}
+      CONCERTO_ALLOWED_ORIGINS: ${CONCERTO_ALLOWED_ORIGINS:?Set CONCERTO_ALLOWED_ORIGINS in .env}
+      PORT: 3000
+      SOLID_QUEUE_IN_PUMA: "true"
+      # If you need to disable SSL enforcement for local troubleshooting, set DISABLE_SSL=1 in .env.
       DISABLE_SSL: ${DISABLE_SSL:-}
     volumes:
-      # This is where sqlite DB + ActiveStorage live for the default config.
+      # Active Storage files remain on the Windows host.
       - ../../apps/api/storage:/rails/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --header 'X-Forwarded-Proto: https' http://localhost:3000/up || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: apps/bufet-media-dashboard/Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:?Set EXPO_PUBLIC_API_URL in .env}
+    environment:
+      PORT: 8080
+    depends_on:
+      api:
+        condition: service_healthy
     restart: unless-stopped
 
   caddy:
     image: caddy:2.8
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in .env}
+      DASHBOARD_DOMAIN: ${DASHBOARD_DOMAIN:?Set DASHBOARD_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # Static dashboard output copied to Windows.
-      - ../../apps/bufet-media-dashboard/dist:/srv/dashboard:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped
 
 volumes:
+  postgres_data:
   caddy_data:
   caddy_config:
-

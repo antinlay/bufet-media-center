@@ -84,3 +84,18 @@ pnpm test
 - Do not use the old paths `apps/dashboard` or `apps/player`.
 - Expo work in dashboard/player should go through the Expo plugin workflow.
 - Keep changes scoped and update env/docs when commands or config change.
+
+## Home Windows deployment
+
+The Docker bundle for running PostgreSQL, the Rails API, the Expo web dashboard, and Caddy on a Windows PC is documented in [deploy/home-windows/README.md](deploy/home-windows/README.md).
+
+## Local Docker smoke test
+
+For a local Mac/Windows test without public DNS or HTTPS:
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+- API: `http://localhost:3001/up`
+- Dashboard: `http://localhost:8080`

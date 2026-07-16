@@ -11,3 +11,7 @@ apps/api/
 apps/api/**
 apps/bufet-media-dashboard/
 apps/bufet-media-dashboard/**
+
+# Generate the player native project from its Expo config on EAS.
+/apps/bufet-media-player/android
+/apps/bufet-media-player/ios

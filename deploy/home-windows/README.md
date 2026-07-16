@@ -1,108 +1,104 @@
 # Home Hosting (Windows) - BUFET MVP
 
-Goal: run the Rails backend (`apps/api`) and the web dashboard (`apps/bufet-media-dashboard`) from a home Windows PC with a public IPv4, using DuckDNS + Caddy + Docker.
+Этот bundle запускает тот же состав, что и Railway: PostgreSQL, Rails API, Expo web dashboard и Caddy с HTTPS.
 
-This gives you stable public URLs:
-- `https://bufet-api.duckdns.org`
-- `https://bufet-dashboard.duckdns.org`
+## Что нужно один раз
 
-## 0) Prereqs
-- Windows 10/11 host that can stay on 24/7
-- Docker Desktop (Linux containers)
-- Router admin access (port forwarding)
-- A phone on LTE (or any external network) to test access from the internet
+- Windows 10/11 и Docker Desktop в режиме Linux containers.
+- В Docker Desktop включить `Start Docker Desktop when you sign in`.
+- Два DNS-имени, указывающие на внешний IP дома: API и dashboard. В примере используются DuckDNS.
+- На роутере пробросить TCP `80` и `443` на Windows-компьютер. Желательно закрепить ему локальный IP.
 
-## 1) DuckDNS
-Create two DuckDNS subdomains and point both to your public IP:
-- `bufet-api.duckdns.org`
-- `bufet-dashboard.duckdns.org`
+## DuckDNS
 
-Set up DuckDNS auto-update (Scheduled Task) so the IP stays correct if it changes.
+1. Откройте [duckdns.org](https://www.duckdns.org/) и войдите в аккаунт.
+2. В разделе доменов создайте два subdomain: `bufet-api` и `bufet-dashboard`.
+3. DuckDNS сформирует адреса `bufet-api.duckdns.org` и `bufet-dashboard.duckdns.org`.
+4. Скопируйте account token и сохраните его как секрет.
+5. Обновите оба домена на текущий внешний IPv4 с Windows PowerShell:
 
-## 2) Router: static LAN IP + port forwarding
-Reserve a static LAN IP for your Windows host, example: `192.168.1.10`.
-
-Forward ports to the host:
-- `TCP 80 -> 192.168.1.10:80`
-- `TCP 443 -> 192.168.1.10:443`
-
-Windows Firewall:
-- Allow inbound TCP 80/443 (or allow Docker Desktop / com.docker.* if needed).
-
-## 3) Prepare directories on Windows
-Pick a folder, example `C:\bufet\`.
-
-Create:
-- `C:\bufet\concerto\storage` (SQLite DB + ActiveStorage files)
-- `C:\bufet\dashboard\dist` (static dashboard build output)
-
-## 4) Build dashboard (on Mac) and copy to Windows
-Build web files (static) for hosting.
-
-From macOS:
-```bash
-cd /Users/janiecee/Developer/Buffet/apps/bufet-media-dashboard
-EXPO_PUBLIC_API_URL=https://bufet-api.duckdns.org pnpm dlx expo export -p web --output-dir dist
-```
-
-Copy `apps/bufet-media-dashboard/dist/*` to Windows:
-- `C:\bufet\dashboard\dist`
-
-Verify on Windows: `C:\bufet\dashboard\dist\index.html` exists.
-
-## 5) Generate SECRET_KEY_BASE
-On Windows PowerShell:
 ```powershell
-python - << 'PY'
-import secrets
-print(secrets.token_hex(64))
-PY
+$token = "ВАШ_DUCKDNS_TOKEN"
+Invoke-RestMethod "https://www.duckdns.org/update?domains=bufet-api,bufet-dashboard&token=$token&verbose=true"
 ```
 
-If you don't have Python, use any strong random generator (at least 64 bytes).
+Нормальный ответ начинается с `OK`. Если домашний внешний IP меняется, настройте этот запрос как Scheduled Task. DuckDNS также поддерживает готовую Windows-инструкцию и HTTP API для обновления нескольких доменов одним запросом.
 
-## 6) Create .env and run Docker Compose
-Copy `.env.example` to `.env` and fill values:
-- `SECRET_KEY_BASE=...`
-- `CONCERTO_DASHBOARD_URL=https://bufet-dashboard.duckdns.org`
+Проверить DNS можно с любого компьютера:
 
-On Windows (PowerShell) in this folder:
+```bash
+dig +short bufet-api.duckdns.org
+dig +short bufet-dashboard.duckdns.org
+```
+
+Результатом должен быть внешний IP роутера. Адрес `192.168.0.127` в DuckDNS указывать нельзя: это локальный адрес Windows-компьютера.
+
+## Первый запуск
+
+Скопируйте репозиторий на Windows, например в `C:\bufet`, затем в PowerShell:
+
 ```powershell
 cd C:\bufet\deploy\home-windows
+Copy-Item .env.example .env
+notepad .env
+```
+
+В `.env` обязательно заполните `SECRET_KEY_BASE`, замените пароль PostgreSQL и проверьте домены. `DATABASE_URL` должен содержать тот же пароль, что и `POSTGRES_PASSWORD`; для простоты используйте URL-safe пароль без `@`, `:`, `/` и `#`.
+
+Сгенерировать секрет без Python:
+
+```powershell
+$bytes = [byte[]]::new(64)
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+[BitConverter]::ToString($bytes).Replace('-', '').ToLower()
+```
+
+Вставьте результат в `SECRET_KEY_BASE`. Затем запустите весь стек:
+
+```powershell
+docker compose up -d --build
+docker compose ps
+```
+
+Dashboard теперь собирается внутри Docker, поэтому ничего не нужно собирать на Mac и копировать вручную.
+
+## Автозапуск и запрет сна
+
+PowerShell от имени администратора:
+
+```powershell
+cd C:\bufet\deploy\home-windows
+Set-ExecutionPolicy -Scope Process Bypass
+.\install-autostart.ps1
+```
+
+Скрипт создаёт задачу запуска Compose при входе пользователя и отключает сон/гибернацию при питании от сети. `start-bufet.ps1` ждёт готовности Docker Desktop, поэтому перезапуск после включения компьютера безопасен.
+
+## Проверка снаружи сети
+
+С телефона через LTE проверьте:
+
+- `https://bufet-api.duckdns.org/up` — HTTP 200;
+- `https://bufet-dashboard.duckdns.org/pair` — открывается dashboard.
+
+Логи:
+
+```powershell
+docker compose logs -f api
+docker compose logs -f caddy
+```
+
+Если не работает: проверьте DNS, проброс портов, Windows Firewall и не блокирует ли провайдер входящие 80/443. Для доступа из той же Wi-Fi сети может потребоваться NAT loopback или локальная DNS-переадресация.
+
+## Обновление
+
+```powershell
+cd C:\bufet
+git pull
+cd deploy\home-windows
 docker compose up -d --build
 ```
 
-## 7) External checks (from LTE)
-These must work from outside your home Wi-Fi:
-- `https://bufet-api.duckdns.org/up` returns 200
-- `https://bufet-dashboard.duckdns.org/pair` loads (SPA route)
+## Важное ограничение
 
-If they don't:
-- check router port forwarding
-- check ISP blocking of 80/443
-- check Windows firewall
-- check DuckDNS points to your current public IP
-
-## 8) Configure Player build (EAS Variables)
-Set project env vars on EAS (production environment):
-- `EXPO_PUBLIC_API_URL=https://bufet-api.duckdns.org`
-- `EXPO_PUBLIC_ALLOW_HTTP=0`
-
-Then build APK:
-```bash
-cd /Users/janiecee/Developer/Buffet/apps/bufet-media-player
-pnpm dlx eas-cli build -p android --profile apk
-```
-
-## 9) NAT loopback / hairpin (common home issue)
-Symptom:
-- From LTE everything works.
-- From the same home Wi-Fi (TV) `https://bufet-api.duckdns.org` fails.
-
-Fix options:
-1. Enable NAT loopback / hairpin NAT on the router.
-2. Add local DNS override on the router:
-   `bufet-api.duckdns.org -> 192.168.1.10`
-   `bufet-dashboard.duckdns.org -> 192.168.1.10`
-3. Temporary fallback: open Player `/setup` and use LAN URL (requires HTTP and `EXPO_PUBLIC_ALLOW_HTTP=1`).
-
+В отличие от Railway, локальный PostgreSQL не получает облачные backups автоматически. Сохраняйте volume `postgres_data` и периодически делайте `pg_dump` на внешний диск.

@@ -1,22 +1,17 @@
 {
-  # Keep defaults minimal and predictable.
-  email you@example.com
+  email {$ACME_EMAIL}
 }
 
-bufet-api.duckdns.org {
+{$API_DOMAIN} {
   encode zstd gzip
 
   # Rails container is on the same Docker network.
-  reverse_proxy api:80
+  reverse_proxy api:3000
 }
 
-bufet-dashboard.duckdns.org {
+{$DASHBOARD_DOMAIN} {
   encode zstd gzip
 
-  root * /srv/dashboard
-
-  # SPA fallback so routes like /pair work when refreshed.
-  try_files {path} /index.html
-  file_server
+  # Dashboard container serves the Expo SPA and handles the fallback.
+  reverse_proxy dashboard:8080
 }
-
