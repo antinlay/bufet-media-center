@@ -66,7 +66,7 @@ A devcontainer is also available for containerized development in supported plat
 
 System Requirements:
 
-* ruby 3.3
+* ruby 4.0.6
 * node, npm
 * yarn, for the frontend
 * libvips, for image resizing

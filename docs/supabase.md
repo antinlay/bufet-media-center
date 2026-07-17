@@ -29,8 +29,8 @@ The initial schema and private `media` bucket live in `supabase/migrations/`. Th
 
 ```bash
 cd apps/api
-PATH="$HOME/.rbenv/versions/3.3.9/bin:$PATH" bin/rails supabase:sync
-PATH="$HOME/.rbenv/versions/3.3.9/bin:$PATH" bin/rails supabase:mark_stale
+PATH="$HOME/.rbenv/versions/4.0.6/bin:$PATH" bin/rails supabase:sync
+PATH="$HOME/.rbenv/versions/4.0.6/bin:$PATH" bin/rails supabase:mark_stale
 ```
 
 The sync maps legacy Rails IDs to `organizations`, `screens`, `media`, `playlists`, and `playlist_items`. It is idempotent for legacy IDs and rebuilds each screen playlist from the Rails source during the compatibility period.

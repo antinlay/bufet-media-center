@@ -1,5 +1,3 @@
-require "digest/uuid"
-
 module Supabase
   module Sync
     class Content
