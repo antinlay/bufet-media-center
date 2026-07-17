@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: bufet-media-api
+    runtime: docker
+    rootDir: apps/api
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: starter
+    healthCheckPath: /up
+    autoDeployTrigger: commit
+    initialDeployHook: ./bin/rails db:seed
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bufet-media-api-db
+          property: connectionString
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DASHBOARD_BASE_URL
+        value: https://bufet-media-center.vercel.app
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_MEDIA_BUCKET
+        value: media
+      - key: SUPABASE_SIGNED_URL_TTL
+        value: "3600"
+
+databases:
+  - name: bufet-media-api-db
+    databaseName: bufet_production
+    user: bufet
+    region: singapore
+    plan: basic-256mb
