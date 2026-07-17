@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "env": {
+    "EXPO_PUBLIC_API_URL": "https://bufet-media-center-production.up.railway.app"
+  },
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @bufet/shared build && pnpm --filter @bufet/dashboard build:web",
+  "outputDirectory": "apps/bufet-media-dashboard/dist",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
+}
