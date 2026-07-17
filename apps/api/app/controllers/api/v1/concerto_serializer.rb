@@ -125,7 +125,8 @@ module Api::V1::ConcertoSerializer
     }
 
     if content.is_a?(Graphic)
-      base.merge(imageUrl: content.image.attached? ? rails_blob_path(content.image, only_path: true) : nil)
+      graphic_urls = graphic_media_urls(content)
+      base.merge(imageUrl: graphic_urls[:media_url], thumbnailUrl: graphic_urls[:thumbnail_url])
     elsif content.is_a?(Video)
       base.merge(
         url: content.playback_url,
