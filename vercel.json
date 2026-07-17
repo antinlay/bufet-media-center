@@ -5,8 +5,8 @@
     "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com"
   },
   "installCommand": "npx --yes pnpm@9.12.0 install --frozen-lockfile",
-  "buildCommand": "npx --yes pnpm@9.12.0 --filter @bufet/shared build && npx --yes pnpm@9.12.0 --filter @bufet/dashboard build:web",
-  "outputDirectory": "apps/bufet-media-dashboard/dist",
+  "buildCommand": "npx --yes pnpm@9.12.0 --filter @bufet/shared build && npx --yes pnpm@9.12.0 --filter @bufet/dashboard build:web && rm -rf dist && cp -R apps/bufet-media-dashboard/dist dist",
+  "outputDirectory": "dist",
   "routes": [
     { "handle": "filesystem" },
     { "src": "/.*", "dest": "/index.html" }
