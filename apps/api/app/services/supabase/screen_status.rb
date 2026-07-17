@@ -4,10 +4,11 @@ module Supabase
       def for_legacy_ids(ids)
         return {} unless Supabase::Client.configured? && ids.any?
 
-        Supabase::Client.get(
+        response = Supabase::Client.get(
           "screens",
           params: { "select" => "legacy_id,status,last_seen_at", "legacy_id" => "in.(#{ids.join(",")})" }
-        ).index_by { |screen| screen["legacy_id"].to_i }.transform_values { |screen| screen["status"] }
+        )
+        response.index_by { |screen| screen["legacy_id"].to_i }.transform_values { |screen| screen["status"] }
       rescue Supabase::Client::Error => error
         Rails.logger.warn("Supabase screen status unavailable: #{error.class}")
         {}

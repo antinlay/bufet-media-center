@@ -21,7 +21,13 @@ module Supabase
       end
 
       def get(table, params: {})
-        request(:get, "/rest/v1/#{table}", params: params)
+        response = request(:get, "/rest/v1/#{table}", params: params)
+        return response if response.is_a?(Array)
+
+        raise Error.new(
+          "Supabase GET returned an unexpected response",
+          response_body: response
+        )
       end
 
       def post(table, body, params: {}, headers: {})
@@ -37,11 +43,17 @@ module Supabase
       end
 
       def upsert(table, records, conflict:)
-        post(
+        response = post(
           table,
           records,
           params: { on_conflict: conflict },
           headers: { "Prefer" => "resolution=merge-duplicates,return=representation" }
+        )
+        return response if response.is_a?(Array)
+
+        raise Error.new(
+          "Supabase upsert returned an unexpected response",
+          response_body: response
         )
       end
 
@@ -112,7 +124,8 @@ module Supabase
         parsed = parse_body(response.body)
         return parsed if response.is_a?(Net::HTTPSuccess)
 
-        Rails.logger.warn("Supabase request failed: #{method.to_s.upcase} #{path} (#{response.code})")
+        diagnostic = parsed.inspect.to_s.truncate(1_000)
+        Rails.logger.warn("Supabase request failed: #{method.to_s.upcase} #{path} (#{response.code}) body=#{diagnostic}")
         raise Error.new(
           "Supabase request failed",
           status: response.code.to_i,
