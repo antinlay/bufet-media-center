@@ -173,9 +173,10 @@ export class PlayerService {
     return match ? match[0] : '';
   }
 
-  private static localPathForUrl(url: string): string {
+  private static localPathForItem(item: DeviceConfigResponse['playlist']['items'][number], kind: 'media' | 'thumbnail'): string {
+    const url = kind === 'media' ? item.url : item.thumbnailUrl ?? '';
     const ext = this.extensionForUrl(url);
-    return `${this.MEDIA_CACHE_DIR}/${this.hashUrl(url)}${ext}`;
+    return `${this.MEDIA_CACHE_DIR}/${this.hashUrl(`${item.id}:${kind}`)}${ext}`;
   }
 
   static async saveCachedPlaylist(payload: { items: DeviceConfigResponse['playlist']['items']; configVersion?: string }) {
@@ -204,12 +205,12 @@ export class PlayerService {
     const updated = await Promise.all(items.map(async (item) => {
       const next = { ...item };
       if (item.url && isAbsoluteUrl(item.url)) {
-        const local = this.localPathForUrl(item.url);
+        const local = this.localPathForItem(item, 'media');
         const info = await FileSystem.getInfoAsync(local);
         if (info.exists) next.url = local;
       }
       if (item.thumbnailUrl && isAbsoluteUrl(item.thumbnailUrl)) {
-        const local = this.localPathForUrl(item.thumbnailUrl);
+        const local = this.localPathForItem(item, 'thumbnail');
         const info = await FileSystem.getInfoAsync(local);
         if (info.exists) next.thumbnailUrl = local;
       }
@@ -222,15 +223,14 @@ export class PlayerService {
     if (!FileSystem.documentDirectory) return;
     await this.ensureMediaCacheDir();
     const targets = new Set<string>();
-    const urls = new Set<string>();
+    const downloads: Array<{ url: string; local: string }> = [];
 
     items.forEach((item) => {
-      if (item.url && isAbsoluteUrl(item.url)) urls.add(item.url);
-      if (item.thumbnailUrl && isAbsoluteUrl(item.thumbnailUrl)) urls.add(item.thumbnailUrl);
+      if (item.url && isAbsoluteUrl(item.url)) downloads.push({ url: item.url, local: this.localPathForItem(item, 'media') });
+      if (item.thumbnailUrl && isAbsoluteUrl(item.thumbnailUrl)) downloads.push({ url: item.thumbnailUrl, local: this.localPathForItem(item, 'thumbnail') });
     });
 
-    for (const url of urls) {
-      const local = this.localPathForUrl(url);
+    for (const { url, local } of downloads) {
       targets.add(local);
       const info = await FileSystem.getInfoAsync(local);
       if (!info.exists) {

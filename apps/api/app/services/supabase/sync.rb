@@ -21,13 +21,15 @@ module Supabase
         existing = Supabase::Client.get("media", params: { "select" => "*", "legacy_id" => "eq.#{@content.id}", "limit" => "1" }).first
         storage_path = existing && existing["storage_path"]
         thumbnail_path = existing && existing["thumbnail_path"]
+        media_attachment = attachment_for
+        existing_attachment = existing&.dig("metadata", "attachment")
 
-        if @content.is_a?(Graphic) && @content.image.attached? && storage_path.blank?
+        if media_attachment&.attached? && (storage_path.blank? || existing_attachment != media_attachment.name)
           storage_path = Supabase::MediaStore.upload_attachment(
-            @content.image,
-            path: Supabase::MediaStore.path_for(@content, @content.image)
+            media_attachment,
+            path: Supabase::MediaStore.path_for(@content, media_attachment)
           )
-          thumbnail_path = storage_path
+          thumbnail_path = nil
         elsif @content.is_a?(Video) && @content.file.attached? && storage_path.blank?
           storage_path = Supabase::MediaStore.upload_attachment(
             @content.file,
@@ -35,7 +37,19 @@ module Supabase
           )
         end
 
-        if @content.is_a?(Video) && @content.poster.attached? && thumbnail_path.blank?
+        if @content.is_a?(Graphic) && @content.image.attached? && thumbnail_path.blank?
+          begin
+            variant = @content.image.variant(resize_to_limit: [ 640, 360 ]).processed
+            thumbnail_path = Supabase::MediaStore.upload_bytes(
+              variant.download,
+              path: Supabase::MediaStore.path_for(@content, @content.image, suffix: "thumbnail"),
+              content_type: variant.blob.content_type.presence || "image/jpeg"
+            )
+          rescue StandardError => error
+            Rails.logger.warn("Supabase image thumbnail failed: #{error.class}")
+            thumbnail_path = storage_path
+          end
+        elsif @content.is_a?(Video) && @content.poster.attached? && thumbnail_path.blank?
           thumbnail_path = Supabase::MediaStore.upload_attachment(
             @content.poster,
             path: Supabase::MediaStore.path_for(@content, @content.poster, suffix: "thumbnail")
@@ -56,7 +70,8 @@ module Supabase
             source_type: @content.class.name,
             start_time: @content.start_time&.iso8601,
             end_time: @content.end_time&.iso8601,
-            updated_at: @content.updated_at&.iso8601
+            updated_at: @content.updated_at&.iso8601,
+            attachment: media_attachment&.name
           }
         }
         Supabase::Client.upsert("media", [ record ], conflict: "legacy_id").first
@@ -70,6 +85,14 @@ module Supabase
         elsif @content.image.attached?
           rails_blob_path(@content.image, only_path: true)
         end
+      end
+
+      def attachment_for
+        return @content.image if @content.is_a?(Graphic) && @content.image.attached?
+        return @content.mp4 if @content.is_a?(Video) && @content.mp4.attached?
+        return @content.file if @content.is_a?(Video) && @content.file.attached?
+
+        nil
       end
     end
 
@@ -89,7 +112,7 @@ module Supabase
         screen = Supabase::Client.upsert("screens", [ screen_record(organization["id"]) ], conflict: "legacy_id").first
         playlist = Supabase::Client.upsert(
           "playlists",
-          [ { screen_id: screen["id"], version: @screen.config_version.to_i, updated_at: Time.current.iso8601 } ],
+          [ { screen_id: screen["id"], version: @screen.updated_at.to_i, updated_at: Time.current.iso8601 } ],
           conflict: "screen_id"
         ).first
 
@@ -123,7 +146,7 @@ module Supabase
           player_device_id: @screen.player_device&.device_id,
           name: @screen.name,
           status: @screen.online? ? "online" : "offline",
-          config_version: @screen.config_version.to_i,
+          config_version: @screen.config_version.to_s,
           last_seen_at: @screen.last_seen_at&.iso8601,
           metadata: { template_id: @screen.template_id }
         }

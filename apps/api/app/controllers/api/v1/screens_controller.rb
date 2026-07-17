@@ -26,7 +26,7 @@ class Api::V1::ScreensController < Api::V1::BaseController
     authorize screen
 
     if screen.save
-      Supabase::Sync::Screen.call(screen)
+      sync_supabase!(screen)
       render json: serialize_screen(screen), status: :created
     else
       render json: { message: screen.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -39,7 +39,7 @@ class Api::V1::ScreensController < Api::V1::BaseController
     authorize screen
 
     if screen.save
-      Supabase::Sync::Screen.call(screen)
+      sync_supabase!(screen)
       render json: serialize_screen(screen)
     else
       render json: { message: screen.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -59,5 +59,11 @@ class Api::V1::ScreensController < Api::V1::BaseController
   def screen_params(record)
     payload = params[:screen].presence || params
     payload.permit(policy(record).permitted_attributes)
+  end
+
+  def sync_supabase!(screen)
+    Supabase::Sync::Screen.call(screen)
+  rescue Supabase::Client::Error => error
+    Rails.logger.warn("Supabase screen sync failed: #{error.class}")
   end
 end

@@ -34,6 +34,13 @@ module Supabase
         path
       end
 
+      def upload_bytes(body, path:, content_type: "application/octet-stream")
+        return nil unless configured?
+
+        Client.upload_object(bucket, path, body, content_type: content_type)
+        path
+      end
+
       def path_for(content, attachment, suffix: "original")
         extension = attachment.blob.filename.extension.presence || "bin"
         "media/#{content.class.name.underscore}/#{content.id}/#{suffix}-#{SecureRandom.hex(8)}.#{extension}"

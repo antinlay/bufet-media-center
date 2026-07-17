@@ -1,6 +1,7 @@
 require "json"
 require "net/http"
 require "uri"
+require "erb"
 
 module Supabase
   class Client

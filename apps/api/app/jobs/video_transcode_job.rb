@@ -53,6 +53,8 @@ class VideoTranscodeJob < ApplicationJob
           content_type: "image/jpeg"
         )
       end
+
+      Supabase::Sync::Content.call(video) if Supabase::Client.configured?
     rescue StandardError => e
       Rails.logger.error("Video transcode failed for Video #{video_id}: #{e.message}")
     ensure

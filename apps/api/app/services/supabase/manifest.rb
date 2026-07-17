@@ -40,7 +40,7 @@ module Supabase
           settings: {
             screen_id: screen["legacy_id"] || screen["id"],
             screen_uuid: screen["id"],
-            config_version: screen["config_version"].to_i,
+            config_version: screen["config_version"].to_s,
             manifest_version: "#{playlist["version"]}:#{playlist["updated_at"]}",
             source: "supabase"
           }

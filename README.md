@@ -70,6 +70,7 @@ pnpm test
 - API: `DATABASE_URL`, `SECRET_KEY_BASE`, `JWT_SECRET`, `DASHBOARD_BASE_URL`, `PORT`
 - Dashboard: `EXPO_PUBLIC_API_URL`
 - Player: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_ALLOW_HTTP`
+- Supabase/API: see [docs/supabase.md](docs/supabase.md); never expose `SUPABASE_SERVICE_ROLE_KEY` to Expo or the browser.
 
 ## Testing
 
