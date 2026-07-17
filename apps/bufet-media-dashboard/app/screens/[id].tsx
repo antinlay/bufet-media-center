@@ -158,6 +158,7 @@ export default function PlaylistEditorScreen() {
       visible={addMenuOpen}
       onDismiss={() => setAddMenuOpen(false)}
       contentStyle={styles.addMenu}
+      elevation={3}
       anchor={
         <Pressable
           accessibilityRole="button"
@@ -169,7 +170,15 @@ export default function PlaylistEditorScreen() {
         </Pressable>
       }
     >
-      <Menu.Item leadingIcon="cellphone" title="С устройства" onPress={uploadFromDevice} />
+      <Menu.Item
+        leadingIcon="cellphone"
+        title="С устройства"
+        onPress={uploadFromDevice}
+        style={styles.addMenuItem}
+        titleStyle={styles.addMenuTitle}
+        theme={addMenuItemTheme}
+        rippleColor="rgba(242, 160, 24, 0.16)"
+      />
       <Menu.Item
         leadingIcon="link-variant"
         title="По ссылке"
@@ -177,6 +186,10 @@ export default function PlaylistEditorScreen() {
           pendingRouteRef.current = 'url';
           setAddMenuOpen(false);
         }}
+        style={styles.addMenuItem}
+        titleStyle={styles.addMenuTitle}
+        theme={addMenuItemTheme}
+        rippleColor="rgba(242, 160, 24, 0.16)"
       />
       <Menu.Item
         leadingIcon="image-multiple-outline"
@@ -185,6 +198,10 @@ export default function PlaylistEditorScreen() {
           pendingRouteRef.current = 'library';
           setAddMenuOpen(false);
         }}
+        style={styles.addMenuItem}
+        titleStyle={styles.addMenuTitle}
+        theme={addMenuItemTheme}
+        rippleColor="rgba(242, 160, 24, 0.16)"
       />
     </Menu>
   );
@@ -361,6 +378,13 @@ function StateScreen({
   );
 }
 
+const addMenuItemTheme = {
+  colors: {
+    onSurface: palette.cream,
+    onSurfaceVariant: palette.cream,
+  },
+};
+
 const styles = StyleSheet.create({
   editor: { flex: 1, minHeight: 0 },
   plusButton: {
@@ -371,7 +395,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: palette.gold,
   },
-  addMenu: { backgroundColor: palette.cream },
+  addMenu: {
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.goldDeep,
+    backgroundColor: palette.panel,
+    boxShadow: '0 12px 24px rgba(0, 0, 0, 0.34)',
+  },
+  addMenuItem: {
+    height: 52,
+  },
+  addMenuTitle: {
+    color: palette.cream,
+    fontFamily: brandFonts.bodyEmphasis,
+    fontSize: 15,
+  },
   itemMenu: { backgroundColor: palette.cream },
   list: { flex: 1 },
   listContent: { gap: 10, paddingTop: 16, paddingBottom: 18 },
