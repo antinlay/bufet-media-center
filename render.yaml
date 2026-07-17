@@ -29,6 +29,10 @@ services:
         generateValue: true
       - key: DASHBOARD_BASE_URL
         value: https://bufet-media-center.vercel.app
+      - key: CONCERTO_DASHBOARD_URL
+        value: https://bufet-media-center.vercel.app
+      - key: CONCERTO_ALLOWED_ORIGINS
+        value: https://bufet-media-center.vercel.app
       - key: PUBLIC_API_URL
         value: https://bufet-media-api.onrender.com
       - key: SUPABASE_URL
