@@ -3,7 +3,11 @@ require "rack/cors"
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     origins do |origin, _env|
-      allowed = ENV.fetch("CONCERTO_ALLOWED_ORIGINS", "").split(",").map(&:strip).reject(&:empty?)
+      allowed = [
+        ENV["CONCERTO_ALLOWED_ORIGINS"],
+        ENV["CONCERTO_DASHBOARD_URL"],
+        ENV["DASHBOARD_BASE_URL"]
+      ].compact.flat_map { |value| value.split(",") }.map(&:strip).reject(&:empty?)
       allowed.include?(origin)
     end
 
