@@ -22,12 +22,7 @@ module Supabase
 
       def get(table, params: {})
         response = request(:get, "/rest/v1/#{table}", params: params)
-        return response if response.is_a?(Array)
-
-        raise Error.new(
-          "Supabase GET returned an unexpected response",
-          response_body: response
-        )
+        normalize_collection(response, operation: "GET")
       end
 
       def post(table, body, params: {}, headers: {})
@@ -49,12 +44,7 @@ module Supabase
           params: { on_conflict: conflict },
           headers: { "Prefer" => "resolution=merge-duplicates,return=representation" }
         )
-        return response if response.is_a?(Array)
-
-        raise Error.new(
-          "Supabase upsert returned an unexpected response",
-          response_body: response
-        )
+        normalize_collection(response, operation: "upsert")
       end
 
       def upload_object(bucket, path, body, content_type: "application/octet-stream")
@@ -83,6 +73,18 @@ module Supabase
       end
 
       private
+
+      def normalize_collection(response, operation:)
+        return response if response.is_a?(Array)
+        return [ response ] if response.is_a?(Hash)
+
+        diagnostic = response.inspect.to_s.truncate(1_000)
+        Rails.logger.warn("Supabase #{operation} returned an unexpected response body=#{diagnostic}")
+        raise Error.new(
+          "Supabase #{operation} returned an unexpected response",
+          response_body: response
+        )
+      end
 
       def base_url
         ENV["SUPABASE_URL"].presence || ENV["SUPABASE_PROJECT_URL"].presence
