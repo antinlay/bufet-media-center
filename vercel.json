@@ -2,7 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "env": {
-    "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com"
+    "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com",
+    "EXPO_PUBLIC_SUPABASE_URL": "https://illaavmcrawkjfnvnqfo.supabase.co",
+    "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_6ycH3sa6GkpH1tw_7XQOSQ_rKvdEjht"
   },
   "installCommand": "npx --yes pnpm@9.12.0 install --frozen-lockfile",
   "buildCommand": "bash scripts/vercel-build.sh",

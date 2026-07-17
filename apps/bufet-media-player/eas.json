@@ -13,14 +13,18 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com",
-        "EXPO_PUBLIC_ALLOW_HTTP": "0"
+        "EXPO_PUBLIC_ALLOW_HTTP": "0",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://illaavmcrawkjfnvnqfo.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_6ycH3sa6GkpH1tw_7XQOSQ_rKvdEjht"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com",
-        "EXPO_PUBLIC_ALLOW_HTTP": "0"
+        "EXPO_PUBLIC_ALLOW_HTTP": "0",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://illaavmcrawkjfnvnqfo.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_6ycH3sa6GkpH1tw_7XQOSQ_rKvdEjht"
       }
     },
     "apk": {
@@ -32,6 +36,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com",
         "EXPO_PUBLIC_ALLOW_HTTP": "0",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://illaavmcrawkjfnvnqfo.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_6ycH3sa6GkpH1tw_7XQOSQ_rKvdEjht",
         "YARN_IGNORE_PACKAGE_MANAGER": "1"
       }
     }
