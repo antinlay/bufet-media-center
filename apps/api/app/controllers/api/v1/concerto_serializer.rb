@@ -146,10 +146,13 @@ module Api::V1::ConcertoSerializer
     content = submission.content
     return nil unless content
 
-    media_url = if content.is_a?(Graphic)
-      content.image.attached? ? rails_blob_path(content.image, only_path: true) : nil
+    if content.is_a?(Graphic)
+      graphic_urls = graphic_media_urls(content)
+      media_url = graphic_urls[:media_url]
+      thumbnail_url = graphic_urls[:thumbnail_url]
     elsif content.is_a?(Video)
-      content.playback_url
+      media_url = content.playback_url
+      thumbnail_url = content.thumbnail_url
     end
 
     {
@@ -160,10 +163,26 @@ module Api::V1::ConcertoSerializer
       duration: content.duration,
       position: submission.position,
       mediaUrl: media_url,
-      thumbnailUrl: content.is_a?(Video) ? content.thumbnail_url : nil,
+      thumbnailUrl: thumbnail_url,
       createdAt: submission.created_at&.iso8601,
       updatedAt: submission.updated_at&.iso8601
     }
+  end
+
+  def graphic_media_urls(content)
+    fallback = content.image.attached? ? rails_blob_path(content.image, only_path: true) : nil
+    return { media_url: fallback, thumbnail_url: fallback } unless Supabase::Client.configured?
+
+    media = supabase_media_for(content.id)
+    return { media_url: fallback, thumbnail_url: fallback } unless media
+
+    media_url = signed_media_url(media["storage_path"]) || fallback
+    thumbnail_url = signed_media_url(media["thumbnail_path"]) || media_url
+
+    { media_url: media_url, thumbnail_url: thumbnail_url }
+  rescue Supabase::Client::Error => error
+    Rails.logger.warn("Supabase dashboard preview unavailable: #{error.class}")
+    { media_url: fallback, thumbnail_url: fallback }
   end
 
   def serialize_submission(submission)
@@ -211,5 +230,21 @@ module Api::V1::ConcertoSerializer
       createdAt: user.created_at&.iso8601,
       updatedAt: user.updated_at&.iso8601
     }
+  end
+
+  def supabase_media_for(content_id)
+    @supabase_media_by_content_id ||= {}
+    return @supabase_media_by_content_id[content_id] if @supabase_media_by_content_id.key?(content_id)
+
+    @supabase_media_by_content_id[content_id] = Supabase::Client.get(
+      "media",
+      params: { "select" => "storage_path,thumbnail_path", "legacy_id" => "eq.#{content_id}", "limit" => "1" }
+    ).first
+  end
+
+  def signed_media_url(path)
+    return nil if path.blank?
+
+    Supabase::MediaStore.signed_url(path)
   end
 end
