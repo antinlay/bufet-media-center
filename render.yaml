@@ -6,7 +6,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     region: singapore
-    plan: starter
+    plan: free
     healthCheckPath: /up
     autoDeployTrigger: commit
     initialDeployHook: ./bin/rails db:seed
@@ -41,4 +41,4 @@ databases:
     databaseName: bufet_production
     user: bufet
     region: singapore
-    plan: basic-256mb
+    plan: free
