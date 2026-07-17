@@ -71,7 +71,10 @@ module Supabase
         signed_path = response.is_a?(Hash) ? response["signedURL"] : nil
         return nil if signed_path.blank?
 
-        signed_path.start_with?("http") ? signed_path : "#{base_url}#{signed_path}"
+        return signed_path if signed_path.start_with?("http")
+
+        storage_path = signed_path.start_with?("/storage/v1/") ? signed_path : "/storage/v1#{signed_path}"
+        "#{base_url}#{storage_path}"
       end
 
       private
