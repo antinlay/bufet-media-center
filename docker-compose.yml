@@ -25,6 +25,8 @@ services:
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       DASHBOARD_BASE_URL: http://localhost:3000
       PORT: 3001
+      HTTP_PORT: 3001
+      TARGET_PORT: 3000
     ports:
       - "3001:3001"
     depends_on:
