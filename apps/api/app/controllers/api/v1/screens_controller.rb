@@ -8,13 +8,15 @@ class Api::V1::ScreensController < Api::V1::BaseController
     screens = policy_scope(Screen)
       .includes(:group, :template, :player_device)
       .order(updated_at: :desc)
-    render json: screens.map { |screen| serialize_screen(screen) }
+    statuses = Supabase::ScreenStatus.for_legacy_ids(screens.map(&:id))
+    render json: screens.map { |screen| serialize_screen(screen, status: statuses[screen.id]) }
   end
 
   def show
     screen = Screen.includes(:group, :template, :player_device).find(params[:id])
     authorize screen
-    render json: serialize_screen(screen)
+    status = Supabase::ScreenStatus.for_legacy_ids([ screen.id ])[screen.id]
+    render json: serialize_screen(screen, status: status)
   end
 
   def create
@@ -24,6 +26,7 @@ class Api::V1::ScreensController < Api::V1::BaseController
     authorize screen
 
     if screen.save
+      Supabase::Sync::Screen.call(screen)
       render json: serialize_screen(screen), status: :created
     else
       render json: { message: screen.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -36,6 +39,7 @@ class Api::V1::ScreensController < Api::V1::BaseController
     authorize screen
 
     if screen.save
+      Supabase::Sync::Screen.call(screen)
       render json: serialize_screen(screen)
     else
       render json: { message: screen.errors.full_messages.to_sentence }, status: :unprocessable_entity

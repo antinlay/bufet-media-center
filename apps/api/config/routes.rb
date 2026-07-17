@@ -10,6 +10,7 @@ Rails.application.routes.draw do
       get "pairing/status", to: "pairings#status"
       get "bootstrap", to: "config#bootstrap"
       get "config", to: "config#show"
+      get "manifest", to: "config#manifest"
     end
 
     namespace :v1 do

@@ -40,6 +40,7 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
       end
 
       submission = @playlist_feed.submissions.create!(content: content)
+      sync_supabase!
       render json: serialize_playlist_item(submission), status: :created
       return
     end
@@ -86,6 +87,7 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
 
     if content.save
       submission = @playlist_feed.submissions.create!(content: content)
+      sync_supabase!
       render json: serialize_playlist_item(submission), status: :created
     else
       render json: { message: content.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -115,6 +117,7 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
     end
 
     if content.save
+      sync_supabase!
       render json: serialize_playlist_item(submission)
     else
       render json: { message: content.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -143,6 +146,8 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
       end
     end
 
+    sync_supabase!
+
     render json: { ok: true }
   end
 
@@ -156,6 +161,8 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
     if content&.submissions&.count == 0
       content.destroy!
     end
+
+    sync_supabase!
 
     head :no_content
   end
@@ -268,5 +275,11 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
 
   def find_submission
     @playlist_feed.submissions.find(params[:submission_id])
+  end
+
+  def sync_supabase!
+    Supabase::Sync::Screen.call(@screen)
+  rescue Supabase::Client::Error => error
+    Rails.logger.warn("Supabase playlist sync failed: #{error.class}")
   end
 end

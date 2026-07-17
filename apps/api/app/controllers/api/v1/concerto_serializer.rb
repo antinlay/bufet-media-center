@@ -39,7 +39,7 @@ module Api::V1::ConcertoSerializer
     }
   end
 
-  def serialize_screen(screen)
+  def serialize_screen(screen, status: nil)
     {
       id: screen.id,
       name: screen.name,
@@ -47,6 +47,7 @@ module Api::V1::ConcertoSerializer
       templateId: screen.template_id,
       lastSeenAt: screen.last_seen_at&.iso8601,
       online: screen.online?,
+      status: status.presence || (screen.online? ? "online" : "offline"),
       configVersion: screen.config_version,
       group: serialize_group(screen.group),
       template: serialize_template(screen.template),

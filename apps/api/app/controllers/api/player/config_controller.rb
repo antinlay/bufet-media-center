@@ -4,7 +4,7 @@ class Api::Player::ConfigController < ActionController::API
     if device&.screen
       device.update(last_seen_at: Time.current)
       device.screen.touch(:last_seen_at)
-      render json: { status: "PAIRED", config: PlayerConfigBuilder.new(device.screen).build }
+      render json: { status: "PAIRED", config: config_for(device) }
     else
       render json: { status: "UNPAIRED" }
     end
@@ -19,7 +19,20 @@ class Api::Player::ConfigController < ActionController::API
 
     device.update(last_seen_at: Time.current)
     device.screen.touch(:last_seen_at)
-    render json: PlayerConfigBuilder.new(device.screen).build
+    render json: config_for(device)
+  end
+
+  def manifest
+    device = find_device
+    unless device&.screen
+      render json: { message: "Device not paired" }, status: :not_found
+      return
+    end
+
+    device.update(last_seen_at: Time.current)
+    device.screen.touch(:last_seen_at)
+    @manifest = config_for(device)
+    render :manifest
   end
 
   private
@@ -29,5 +42,9 @@ class Api::Player::ConfigController < ActionController::API
     return nil if device_id.blank?
 
     PlayerDevice.find_by(device_id: device_id)
+  end
+
+  def config_for(device)
+    Supabase::Manifest.for_device(device.device_id) || PlayerConfigBuilder.new(device.screen).build
   end
 end

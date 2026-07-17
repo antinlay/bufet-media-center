@@ -30,6 +30,7 @@ class Api::V1::ContentsController < Api::V1::BaseController
     end
 
     if content.save
+      Supabase::Sync::Content.call(content)
       render json: serialize_content(content), status: :created
     else
       render json: { message: content.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -50,6 +51,7 @@ class Api::V1::ContentsController < Api::V1::BaseController
     end
 
     if content.save
+      Supabase::Sync::Content.call(content)
       render json: serialize_content(content)
     else
       render json: { message: content.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -61,6 +63,7 @@ class Api::V1::ContentsController < Api::V1::BaseController
     authorize content
 
     content.destroy
+    Supabase::Client.delete("media", params: { "legacy_id" => "eq.#{content.id}" }) if Supabase::Client.configured?
     head :no_content
   end
 

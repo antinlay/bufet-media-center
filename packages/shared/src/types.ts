@@ -50,3 +50,8 @@ export interface DeviceConfig {
   playlistId: string;
   updatedAt: Date;
 }
+
+export interface ScreenStatus {
+  status: 'online' | 'offline' | 'live';
+  lastSeenAt?: string | null;
+}

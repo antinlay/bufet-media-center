@@ -16,6 +16,7 @@ class Api::V1::PairingsController < Api::V1::BaseController
     device = pairing.player_device
     device.update!(screen: screen, paired_at: Time.current)
     pairing.update!(screen: screen, paired_at: Time.current)
+    Supabase::Sync::Screen.call(screen)
 
     render json: {
       screen: serialize_screen(screen),

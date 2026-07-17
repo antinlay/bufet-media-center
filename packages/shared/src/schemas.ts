@@ -172,6 +172,7 @@ export const ConcertoScreenSchema = z.object({
   templateId: z.number(),
   lastSeenAt: z.string().nullable().optional(),
   online: z.boolean().optional(),
+  status: z.enum(['online', 'offline', 'live']).optional(),
   configVersion: z.string().optional(),
   group: ConcertoGroupSchema.optional(),
   template: ConcertoTemplateSchema.optional(),
