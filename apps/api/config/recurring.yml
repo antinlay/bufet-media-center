@@ -21,3 +21,7 @@ production:
   refresh_remote_feeds:
     class: RefreshRemoteFeedsJob
     schedule: every 5 minutes
+
+  mark_stale_screens:
+    command: "Supabase::ScreenStatus.mark_stale!"
+    schedule: every 5 minutes

@@ -39,7 +39,9 @@ function usePlaylistInvalidation(screenId: number) {
     queryClient.invalidateQueries({ queryKey: playlistEditorKey(screenId) }),
     queryClient.invalidateQueries({ queryKey: mediaPointsQueryKey }),
   ]).then(() => {
-    void broadcastPlaylistChanged(screenId);
+    void broadcastPlaylistChanged(screenId).catch((error) => {
+      console.warn('Playlist realtime notification failed; player polling remains active', error);
+    });
   });
 }
 
