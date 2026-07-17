@@ -73,6 +73,9 @@ module Supabase
           }
         }
         Supabase::Client.upsert("media", [ record ], conflict: "legacy_id").first
+      rescue ActiveStorage::FileNotFoundError => error
+        Rails.logger.warn("Supabase media sync skipped missing attachment content_id=#{@content.id}: #{error.class}")
+        nil
       end
 
       private
