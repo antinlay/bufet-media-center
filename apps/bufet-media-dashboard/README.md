@@ -16,10 +16,10 @@ pnpm --filter @bufet/dashboard start -- --web  # dashboard (web)
 EXPO_PUBLIC_API_URL=http://localhost:3000
 ```
 
-Production (Railway API):
+Production (Render API):
 
 ```
-EXPO_PUBLIC_API_URL=https://bufet-media-center-production.up.railway.app
+EXPO_PUBLIC_API_URL=https://bufet-media-api.onrender.com
 ```
 
 Сборка web:
@@ -35,13 +35,7 @@ npx expo prebuild --platform ios
 npx expo run:ios
 ```
 
-Деплой dashboard на Railway:
-- Создай отдельный service для dashboard.
-- `Root Directory`: `/`
-- `Builder`: Dockerfile
-- `Dockerfile Path`: `apps/bufet-media-dashboard/Dockerfile`
-- Variable: `EXPO_PUBLIC_API_URL=https://bufet-media-center-production.up.railway.app`
-- `Custom Build Command`, `Pre-deploy Command`, `Custom Start Command`: пусто.
+Деплой dashboard выполняется на Vercel из корневого `vercel.json`. Rails API разворачивается отдельно через корневой `render.yaml`.
 
 Основные экраны:
 - /login, /register — аутентификация

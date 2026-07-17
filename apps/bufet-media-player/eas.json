@@ -12,13 +12,14 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://bufet-media-center-production.up.railway.app",
+        "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com",
         "EXPO_PUBLIC_ALLOW_HTTP": "0"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com",
         "EXPO_PUBLIC_ALLOW_HTTP": "0"
       }
     },
@@ -29,7 +30,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://bufet-media-center-production.up.railway.app",
+        "EXPO_PUBLIC_API_URL": "https://bufet-media-api.onrender.com",
         "EXPO_PUBLIC_ALLOW_HTTP": "0",
         "YARN_IGNORE_PACKAGE_MANAGER": "1"
       }

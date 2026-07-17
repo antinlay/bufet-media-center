@@ -21,7 +21,7 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 Set API endpoint via env (see `.env.production.example`):
 
 ```bash
-EXPO_PUBLIC_API_URL=https://bufet-media-center-production.up.railway.app
+EXPO_PUBLIC_API_URL=https://bufet-media-api.onrender.com
 EXPO_PUBLIC_ALLOW_HTTP=0
 EXPO_PUBLIC_DISCOVERY_PORTS=443,80,3000
 ```
