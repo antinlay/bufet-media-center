@@ -2,6 +2,8 @@
 
 The Supabase project is the metadata and media delivery backend for the player. Rails remains the authenticated dashboard API and a compatibility fallback while the migration is rolled out.
 
+The Expo dashboard production bundle is hosted on Vercel. The API host is configured separately through `EXPO_PUBLIC_API_URL`; moving the static dashboard does not move the Rails process or its database.
+
 ## Environment
 
 Set these variables in `apps/api/.env` or the API deployment. The service-role key is server-only and must never be added to Expo or Vercel client variables.

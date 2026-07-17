@@ -72,6 +72,8 @@ pnpm test
 - Player: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_ALLOW_HTTP`
 - Supabase/API: see [docs/supabase.md](docs/supabase.md); never expose `SUPABASE_SERVICE_ROLE_KEY` to Expo or the browser.
 
+The Expo dashboard is deployed to [Vercel](https://bufet-media-center.vercel.app) from `vercel.json`. Its `EXPO_PUBLIC_API_URL` must point to a live API deployment; Vercel hosts the dashboard bundle and does not run the Rails API automatically.
+
 ## Testing
 
 - API: `cd apps/api && bin/rails test`
