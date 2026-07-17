@@ -2,6 +2,8 @@ require "json"
 require "net/http"
 require "uri"
 require "erb"
+require "stringio"
+require "zlib"
 
 module Supabase
   class Client
@@ -123,7 +125,7 @@ module Supabase
         end
 
         response = http.request(request)
-        parsed = parse_body(response.body)
+        parsed = parse_body(response.body, content_encoding: response["content-encoding"])
         return parsed if response.is_a?(Net::HTTPSuccess)
 
         diagnostic = parsed.inspect.to_s.truncate(1_000)
@@ -138,11 +140,19 @@ module Supabase
         raise Error, "Supabase network request failed"
       end
 
-      def parse_body(body)
+      def parse_body(body, content_encoding: nil)
         return nil if body.blank?
 
-        JSON.parse(body)
+        decoded_body = if content_encoding.to_s.downcase.include?("gzip")
+          Zlib::GzipReader.new(StringIO.new(body)).read
+        else
+          body
+        end
+
+        JSON.parse(decoded_body)
       rescue JSON::ParserError
+        decoded_body || body
+      rescue Zlib::Error
         body
       end
     end
