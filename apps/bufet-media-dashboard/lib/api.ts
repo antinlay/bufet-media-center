@@ -13,6 +13,7 @@ import type {
   ConcertoTemplate,
   ConcertoUser,
 } from '@bufet/shared';
+import { Platform } from 'react-native';
 import { z } from 'zod';
 import type { PickedFile } from './upload';
 
@@ -218,7 +219,7 @@ export class ApiClient {
         if (value === undefined || value === null) return;
         form.append(key, String(value));
       });
-      if (process.env.EXPO_OS === 'web') {
+      if (Platform.OS === 'web') {
         const blob = await readWebFile(file);
         const field = payload.type === 'Video' ? 'video' : 'image';
         form.append(field, blob, file.name);
@@ -426,7 +427,7 @@ export class ApiClient {
           form.append(key, String(value));
         }
       });
-      if (process.env.EXPO_OS === 'web') {
+      if (Platform.OS === 'web') {
         const blob = await readWebFile(file);
         const field = payload.type === 'Video' ? 'video' : 'image';
         form.append(field, blob, file.name);
@@ -473,7 +474,7 @@ export class ApiClient {
           form.append(key, String(value));
         }
       });
-      if (process.env.EXPO_OS === 'web') {
+      if (Platform.OS === 'web') {
         const blob = await readWebFile(file);
         form.append('image', blob, file.name);
       } else {

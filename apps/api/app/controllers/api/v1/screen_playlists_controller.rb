@@ -84,6 +84,10 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
       render json: { message: "Video is too large (max 100MB)" }, status: :payload_too_large
       return
     end
+    if content.is_a?(Graphic) && !content.image.attached?
+      render json: { message: "Image is required" }, status: :unprocessable_entity
+      return
+    end
 
     if content.save
       submission = @playlist_feed.submissions.create!(content: content)
