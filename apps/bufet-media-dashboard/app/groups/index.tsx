@@ -7,7 +7,9 @@ import { TextInput } from '../../components/TextInput';
 import { GalleryShell } from '../../features/media-points/GalleryShell';
 import { useCreateOrganization } from '../../features/media-points/hooks';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
-import { brandFonts, palette } from '../../theme';
+import { useAppTheme } from '../../providers/AppThemeProvider';
+import { useI18n } from '../../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../../theme';
 
 export default function AddOrganizationScreen() {
   useProtectedRoute();
@@ -15,6 +17,9 @@ export default function AddOrganizationScreen() {
   const createMutation = useCreateOrganization();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors, radius.xl);
 
   const submit = () => {
     createMutation.mutate(
@@ -26,86 +31,78 @@ export default function AddOrganizationScreen() {
   return (
     <GalleryShell
       showBack
-      title="Добавить организацию"
-      subtitle="Новая секция появится на главном экране."
+      title={t('organizations.addTitle')}
+      subtitle={t('organizations.addSubtitle')}
     >
       <View style={styles.card}>
-        <Text style={styles.title}>Новая организация</Text>
-        <Text style={styles.hint}>Укажите название, по которому команда узнает эту медиа-точку.</Text>
+        <Text style={styles.title}>{t('organizations.newTitle')}</Text>
+        <Text style={styles.hint}>{t('organizations.nameHint')}</Text>
         <TextInput
           mode="outlined"
-          label="Название"
+          label={t('organizations.name')}
           value={name}
           onChangeText={(value) => {
             setName(value);
             createMutation.reset();
           }}
           autoFocus
-          textColor={palette.cream}
-          outlineColor="#3A3D45"
-          activeOutlineColor={palette.gold}
           style={styles.input}
         />
         <TextInput
           mode="outlined"
-          label="Описание (необязательно)"
+          label={t('organizations.description')}
           value={description}
           onChangeText={setDescription}
-          textColor={palette.cream}
-          outlineColor="#3A3D45"
-          activeOutlineColor={palette.gold}
           style={styles.input}
         />
         {createMutation.isError ? (
           <HelperText type="error" visible style={styles.error}>
-            {createMutation.error instanceof Error
-              ? createMutation.error.message
-              : 'Не удалось создать организацию'}
+            {t('organizations.createError')}
           </HelperText>
         ) : null}
         <Button
           mode="contained"
-          buttonColor={palette.gold}
-          textColor={palette.ink}
+          buttonColor={colors.accent}
+          textColor={colors.onAccent}
           contentStyle={styles.buttonContent}
           disabled={!name.trim() || createMutation.isPending}
           loading={createMutation.isPending}
           onPress={submit}
         >
-          Добавить
+          {t('organizations.submit')}
         </Button>
       </View>
     </GalleryShell>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 620,
     alignSelf: 'center',
     gap: 14,
     padding: 24,
-    borderRadius: 22,
+    borderRadius,
     borderWidth: 1,
-    borderColor: '#2E3138',
-    backgroundColor: palette.panel,
-    boxShadow: '0 18px 48px rgba(0, 0, 0, 0.25)',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    boxShadow: colors.shadowStrong,
   },
   title: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 20,
   },
   hint: {
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: palette.panelRaised,
+    backgroundColor: colors.inputBackground,
   },
   error: {
     paddingHorizontal: 0,

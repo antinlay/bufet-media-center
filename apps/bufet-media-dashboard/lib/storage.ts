@@ -59,3 +59,18 @@ export async function clearAuth() {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
   await SecureStore.deleteItemAsync(USER_KEY);
 }
+
+export async function savePreference(key: string, value: string) {
+  const ls = getLocalStorage();
+  if (ls) {
+    ls.setItem(key, value);
+    return;
+  }
+  await SecureStore.setItemAsync(key, value);
+}
+
+export async function loadPreference(key: string) {
+  const ls = getLocalStorage();
+  if (ls) return ls.getItem(key);
+  return SecureStore.getItemAsync(key);
+}

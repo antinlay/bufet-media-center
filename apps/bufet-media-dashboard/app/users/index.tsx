@@ -8,7 +8,9 @@ import { EmptyState } from '../../components/EmptyState';
 import { Section } from '../../components/Section';
 import { apiClient } from '../../lib/api';
 import { buildGroupTree, flattenGroupTree } from '../../lib/groupTree';
-import { brandFonts, palette } from '../../theme';
+import { useAppTheme } from '../../providers/AppThemeProvider';
+import { useI18n } from '../../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 
@@ -28,6 +30,9 @@ export default function UsersScreen() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<'member' | 'admin'>('member');
   const [error, setError] = useState<string | null>(null);
+  const { colors } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors);
 
   const effectiveSelectedUserId = selectedUserId ?? users[0]?.id ?? null;
   const effectiveSelectedGroupId = selectedGroupId ?? flatGroups[0]?.group.id ?? null;
@@ -35,7 +40,7 @@ export default function UsersScreen() {
   const addMembershipMutation = useMutation({
     mutationFn: () => {
       if (!effectiveSelectedUserId || !effectiveSelectedGroupId) {
-        throw new Error('Выберите пользователя и организацию');
+        throw new Error(t('users.selectValidation'));
       }
       return apiClient.createMembership({
         user_id: effectiveSelectedUserId,
@@ -47,7 +52,7 @@ export default function UsersScreen() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setError(null);
     },
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : 'Не удалось добавить пользователя'),
+    onError: (caught: unknown) => setError(caught instanceof Error && caught.message === t('users.selectValidation') ? caught.message : t('users.addError')),
   });
 
   const updateMembershipMutation = useMutation({
@@ -94,20 +99,20 @@ export default function UsersScreen() {
 
   return (
     <AppShell
-      title="Пользователи"
-      subtitle="Состав команды и роли в организациях."
+      title={t('users.title')}
+      subtitle={t('users.subtitle')}
       actions={
         <Button mode="contained" onPress={() => queryClient.invalidateQueries({ queryKey: ['users'] })}>
-          Обновить
+          {t('common.refresh')}
         </Button>
       }
     >
       <BrandCard>
-        <Text style={styles.sectionTitle}>Добавить в организацию</Text>
+        <Text style={styles.sectionTitle}>{t('users.addTitle')}</Text>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <View style={styles.selectorRow}>
           <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Пользователь</Text>
+            <Text style={styles.selectorTitle}>{t('users.user')}</Text>
             <RadioButton.Group
               value={effectiveSelectedUserId ? String(effectiveSelectedUserId) : ''}
               onValueChange={(value) => setSelectedUserId(Number(value))}
@@ -115,7 +120,7 @@ export default function UsersScreen() {
               {users.map((user) => (
                 <RadioButton.Item
                   key={user.id}
-                  label={`${user.firstName ?? 'Пользователь'} ${user.lastName ?? ''}`.trim()}
+                  label={`${user.firstName ?? t('common.user')} ${user.lastName ?? ''}`.trim()}
                   value={String(user.id)}
                   labelStyle={styles.radioLabel}
                 />
@@ -123,7 +128,7 @@ export default function UsersScreen() {
             </RadioButton.Group>
           </View>
           <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Организация</Text>
+            <Text style={styles.selectorTitle}>{t('users.organization')}</Text>
             <RadioButton.Group
               value={effectiveSelectedGroupId ? String(effectiveSelectedGroupId) : ''}
               onValueChange={(value) => setSelectedGroupId(Number(value))}
@@ -139,27 +144,27 @@ export default function UsersScreen() {
             </RadioButton.Group>
           </View>
           <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Роль</Text>
+            <Text style={styles.selectorTitle}>{t('users.role')}</Text>
             <RadioButton.Group
               value={selectedRole}
               onValueChange={(value) => setSelectedRole(value as 'member' | 'admin')}
             >
-              <RadioButton.Item label="Участник" value="member" labelStyle={styles.radioLabel} />
-              <RadioButton.Item label="Администратор" value="admin" labelStyle={styles.radioLabel} />
+              <RadioButton.Item label={t('users.roleMember')} value="member" labelStyle={styles.radioLabel} />
+              <RadioButton.Item label={t('users.roleAdmin')} value="admin" labelStyle={styles.radioLabel} />
             </RadioButton.Group>
           </View>
         </View>
         <Button mode="contained" onPress={() => addMembershipMutation.mutate()} loading={addMembershipMutation.isPending}>
-          Добавить
+          {t('common.add')}
         </Button>
       </BrandCard>
-      <Section title="Список пользователей" subtitle="Администраторы выделены в организациях.">
+      <Section title={t('users.listTitle')} subtitle={t('users.listSubtitle')}>
         {users.length === 0 ? (
-          <EmptyState title="Пользователей нет" subtitle="Зарегистрируйте первого пользователя." />
+          <EmptyState title={t('users.emptyTitle')} subtitle={t('users.emptySubtitle')} />
         ) : (
           users.map((user) => (
             <BrandCard key={user.id}>
-              <Text style={styles.userName}>{user.firstName ?? 'Пользователь'} {user.lastName ?? ''}</Text>
+              <Text style={styles.userName}>{user.firstName ?? t('common.user')} {user.lastName ?? ''}</Text>
               <Text style={styles.userMeta}>{user.email}</Text>
               {currentUser?.systemAdmin ? (
                 <View style={userActionsStyle}>
@@ -167,10 +172,10 @@ export default function UsersScreen() {
                     mode="text"
                     disabled={currentUser?.id === user.id}
                     onPress={() => {
-                      Alert.alert('Удалить пользователя?', user.email, [
-                        { text: 'Отмена', style: 'cancel' },
+                      Alert.alert(t('users.deleteTitle'), user.email, [
+                        { text: t('common.cancel'), style: 'cancel' },
                         {
-                          text: 'Удалить',
+                          text: t('common.delete'),
                           style: 'destructive',
                           onPress: () => deleteUserMutation.mutate(user.id),
                         },
@@ -178,13 +183,13 @@ export default function UsersScreen() {
                     }}
                     loading={deleteUserMutation.isPending}
                   >
-                    Удалить пользователя
+                    {t('users.deleteUser')}
                   </Button>
                 </View>
               ) : null}
               <View style={styles.membershipList}>
                 {(user.groups ?? []).length === 0 ? (
-                  <Text style={styles.userMeta}>Организации: —</Text>
+                  <Text style={styles.userMeta}>{t('users.organizationsEmpty')}</Text>
                 ) : (
                   (user.groups ?? []).map((group) => (
                     <View key={`${user.id}-${group.id}`} style={membershipRowStyle}>
@@ -200,7 +205,7 @@ export default function UsersScreen() {
                           }}
                           loading={updateMembershipMutation.isPending}
                         >
-                          {group.role === 'admin' ? 'Сделать участником' : 'Сделать админом'}
+                          {t(group.role === 'admin' ? 'users.makeMember' : 'users.makeAdmin')}
                         </Button>
                         <Button
                           mode="text"
@@ -208,7 +213,7 @@ export default function UsersScreen() {
                           onPress={() => group.membershipId && deleteMembershipMutation.mutate(group.membershipId)}
                           loading={deleteMembershipMutation.isPending}
                         >
-                          Удалить
+                          {t('common.delete')}
                         </Button>
                       </View>
                     </View>
@@ -223,16 +228,16 @@ export default function UsersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   sectionTitle: {
     fontFamily: brandFonts.heading,
     fontSize: 18,
-    color: palette.charcoal,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   errorText: {
     fontFamily: brandFonts.bodyEmphasis,
-    color: '#B42318',
+    color: colors.danger,
     marginBottom: 8,
   },
   selectorRow: {
@@ -247,7 +252,7 @@ const styles = StyleSheet.create({
   },
   selectorTitle: {
     fontFamily: brandFonts.bodyEmphasis,
-    color: palette.slate,
+    color: colors.textSecondary,
     marginBottom: 6,
   },
   radioLabel: {
@@ -257,11 +262,11 @@ const styles = StyleSheet.create({
   userName: {
     fontFamily: brandFonts.heading,
     fontSize: 18,
-    color: palette.charcoal,
+    color: colors.textPrimary,
   },
   userMeta: {
     fontFamily: brandFonts.body,
-    color: palette.slate,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   membershipList: {

@@ -84,7 +84,7 @@ export async function loadMediaPointsDashboard(signal?: AbortSignal): Promise<Me
 
 export async function createOrganization(input: CreateOrganizationInput) {
   const name = input.name.trim();
-  if (!name) throw new Error('Введите название организации');
+  if (!name) throw new Error('ORGANIZATION_NAME_REQUIRED');
 
   return apiClient.createGroup({
     name,
@@ -99,14 +99,14 @@ function findUnassignedGroup(groups: ConcertoGroup[]) {
 
 export async function addScreenByCode(input: AddScreenByCodeInput) {
   const code = input.code.trim().toUpperCase();
-  if (!code) throw new Error('Введите код экрана');
+  if (!code) throw new Error('SCREEN_CODE_REQUIRED');
 
   let organizationId = input.organizationId ?? null;
   if (!organizationId) {
     const groups = await apiClient.getGroups();
     const unassignedGroup = findUnassignedGroup(groups);
     if (!unassignedGroup) {
-      throw new Error('Не удалось определить секцию для экрана без организации');
+      throw new Error('UNASSIGNED_SCREEN_GROUP_NOT_FOUND');
     }
     organizationId = unassignedGroup.id;
   }
@@ -114,7 +114,7 @@ export async function addScreenByCode(input: AddScreenByCodeInput) {
   return apiClient.pairDevice({
     code,
     screen: {
-      name: `Экран ${code}`,
+      name: input.screenName?.trim() || `Screen ${code}`,
       group_id: organizationId,
     },
   });

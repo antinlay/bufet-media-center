@@ -21,6 +21,7 @@ export interface MediaPointsDashboard {
 export interface AddScreenByCodeInput {
   code: string;
   organizationId?: number | null;
+  screenName?: string;
 }
 
 export interface CreateOrganizationInput {

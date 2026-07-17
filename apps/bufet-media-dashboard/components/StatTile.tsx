@@ -1,9 +1,12 @@
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { brandFonts, palette } from '../theme';
+import { brandFonts, type AppColors } from '../theme';
+import { useAppTheme } from '../providers/AppThemeProvider';
 
 export function StatTile({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
+  const { colors, radius } = useAppTheme();
+  const styles = createStyles(colors, radius.lg);
   return (
     <View style={styles.container}>
       <View style={styles.icon}>{icon}</View>
@@ -13,15 +16,15 @@ export function StatTile({ label, value, icon }: { label: string; value: string;
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.create({
   container: {
     flex: 1,
     minWidth: 140,
-    borderRadius: 16,
+    borderRadius,
     padding: 16,
-    backgroundColor: '#FFF6E6',
+    backgroundColor: colors.accentMuted,
     borderWidth: 1,
-    borderColor: palette.fog,
+    borderColor: colors.border,
     gap: 6,
   },
   icon: {
@@ -29,7 +32,7 @@ const styles = StyleSheet.create({
     height: 28,
   },
   label: {
-    color: palette.slate,
+    color: colors.textSecondary,
     fontFamily: brandFonts.body,
     fontSize: 12,
     textTransform: 'uppercase',
@@ -38,6 +41,6 @@ const styles = StyleSheet.create({
   value: {
     fontFamily: brandFonts.heading,
     fontSize: 24,
-    color: palette.charcoal,
+    color: colors.textPrimary,
   },
 });

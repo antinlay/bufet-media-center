@@ -10,12 +10,17 @@ import { useDeleteScreen, useMediaPointsDashboard } from '../features/media-poin
 import type { OrganizationMediaSection } from '../features/media-points/model';
 import { useProtectedRoute } from '../hooks/useProtectedRoute';
 import { useAuth } from '../providers/AuthProvider';
-import { brandFonts, palette } from '../theme';
+import { useAppTheme } from '../providers/AppThemeProvider';
+import { useI18n } from '../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../theme';
 
 export default function DashboardHome() {
   useProtectedRoute();
   const router = useRouter();
   const { token, loading: authLoading } = useAuth();
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors, radius.lg, radius.pill);
   const dashboardQuery = useMediaPointsDashboard(!authLoading && Boolean(token));
   const deleteMutation = useDeleteScreen();
 
@@ -36,12 +41,12 @@ export default function DashboardHome() {
         <>
           <ToolbarButton
             icon="qrcode-scan"
-            label="Сканировать QR"
+            label={t('dashboard.scanQr')}
             onPress={() => router.push('/scan')}
           />
           <ToolbarButton
             icon="plus"
-            label="Добавить организацию"
+            label={t('dashboard.addOrganization')}
             prominent
             onPress={() => router.push('/groups')}
           />
@@ -50,22 +55,20 @@ export default function DashboardHome() {
     >
       {authLoading || dashboardQuery.isLoading ? (
         <View style={styles.stateCard}>
-          <ActivityIndicator color={palette.gold} size="large" />
-          <Text style={styles.stateText}>Загружаем медиа-точки…</Text>
+          <ActivityIndicator color={colors.accent} size="large" />
+          <Text style={styles.stateText}>{t('dashboard.loading')}</Text>
         </View>
       ) : dashboardQuery.isError ? (
         <View style={styles.stateCard}>
-          <MaterialCommunityIcons name="wifi-alert" color={palette.danger} size={34} />
-          <Text style={styles.stateTitle}>Не удалось загрузить экраны</Text>
-          <Text style={styles.stateText}>
-            {dashboardQuery.error instanceof Error ? dashboardQuery.error.message : 'Попробуйте ещё раз'}
-          </Text>
+          <MaterialCommunityIcons name="wifi-alert" color={colors.danger} size={34} />
+          <Text style={styles.stateTitle}>{t('dashboard.loadError')}</Text>
+          <Text style={styles.stateText}>{t('dashboard.fallbackError')}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => dashboardQuery.refetch()}
             style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
           >
-            <Text style={styles.retryText}>Повторить</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
         </View>
       ) : dashboardQuery.data ? (
@@ -95,6 +98,8 @@ function ToolbarButton({
 }) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const { colors, radius } = useAppTheme();
+  const styles = createStyles(colors, radius.lg, radius.pill);
 
   return (
     <Pressable
@@ -113,38 +118,38 @@ function ToolbarButton({
         pressed && styles.pressed,
       ]}
     >
-      <MaterialCommunityIcons name={icon} color={prominent ? palette.ink : palette.cream} size={23} />
+      <MaterialCommunityIcons name={icon} color={prominent ? colors.onAccent : colors.textPrimary} size={23} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, radiusLg: number, radiusPill: number) => StyleSheet.create({
   toolbarButton: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: radiusPill,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#3B3E46',
-    backgroundColor: palette.panel,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   toolbarButtonProminent: {
-    borderColor: palette.gold,
-    backgroundColor: palette.gold,
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
   },
   toolbarButtonHovered: {
-    borderColor: palette.goldDeep,
-    backgroundColor: palette.panelRaised,
+    borderColor: colors.accentPressed,
+    backgroundColor: colors.surfaceElevated,
     transform: [{ scale: 1.04 }],
   },
   toolbarButtonProminentHovered: {
-    backgroundColor: palette.goldDeep,
+    backgroundColor: colors.accentPressed,
     transform: [{ scale: 1.04 }],
   },
   toolbarButtonFocused: {
-    borderColor: palette.gold,
-    boxShadow: '0 0 0 3px rgba(242, 160, 24, 0.24)',
+    borderColor: colors.accent,
+    boxShadow: colors.focusRing,
   },
   stateCard: {
     minHeight: 320,
@@ -152,19 +157,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     padding: 24,
-    borderRadius: 22,
+    borderRadius: radiusLg,
     borderWidth: 1,
-    borderColor: '#2A2D34',
-    backgroundColor: palette.panel,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   stateTitle: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 18,
   },
   stateText: {
     maxWidth: 480,
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 13,
     textAlign: 'center',
@@ -173,11 +178,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: palette.gold,
+    borderRadius: radiusPill,
+    backgroundColor: colors.accent,
   },
   retryText: {
-    color: palette.ink,
+    color: colors.onAccent,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 13,
   },

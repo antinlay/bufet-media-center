@@ -1,153 +1,121 @@
-import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { ScrollView, View, StyleSheet } from 'react-native';
-import { Text, Button, HelperText } from 'react-native-paper';
-import { TextInput } from '../components/TextInput';
-import { useAuth } from '../providers/AuthProvider';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { useProtectedRoute } from '../hooks/useProtectedRoute';
-import { BrandCard } from '../components/BrandCard';
-import { brandFonts, palette } from '../theme';
+import { useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { HelperText, TextInput } from 'react-native-paper';
+import { z } from 'zod';
+import { AuthButton, AuthCheckbox, AuthInput } from '@/components/auth-controls';
+import { AuthLayout } from '@/components/auth-layout';
+import { useProtectedRoute } from '@/hooks/useProtectedRoute';
+import { useAppTheme } from '@/providers/AppThemeProvider';
+import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
 
-const loginSchema = z.object({
-  email: z.string().email({ message: 'Укажите email' }),
-  password: z.string().min(6, 'Минимум 6 символов'),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
+type LoginForm = { email: string; password: string };
 
 export default function LoginScreen() {
   useProtectedRoute();
   const router = useRouter();
   const { login } = useAuth();
+  const { colors } = useAppTheme();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
-  const {
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    control,
-  } = useForm<LoginForm>({
-    resolver: standardSchemaResolver(loginSchema),
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const styles = createStyles(colors);
+  const schema = useMemo(() => z.object({
+    email: z.string().trim().email({ message: t('auth.login.emailRequired') }),
+    password: z.string().min(1, t('auth.login.passwordRequired')).min(6, t('auth.login.passwordMin')),
+  }), [t]);
+  const { handleSubmit, formState: { errors, isSubmitting, isValid }, control } = useForm<LoginForm>({
+    resolver: standardSchemaResolver(schema),
     defaultValues: { email: '', password: '' },
+    mode: 'onChange',
   });
 
   const onSubmit = async (values: LoginForm) => {
     setError(null);
     try {
-      await login(values.email, values.password);
+      await login(values.email.trim(), values.password, rememberMe);
       router.replace('/');
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Ошибка авторизации');
+    } catch (caught: unknown) {
+      const message = caught instanceof Error ? caught.message : '';
+      setError(/invalid credentials|unauthorized|401/i.test(message)
+        ? t('auth.login.invalidCredentials')
+        : t('common.unknownError'));
     }
   };
+  const submit = handleSubmit(onSubmit);
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.page}
-    >
-      <View style={styles.hero}>
-        <Text style={styles.brand}>Буфет</Text>
-        <Text style={styles.brandSub}>ЦИФРОВОЙ ШТАБ ЭКРАНОВ</Text>
+    <AuthLayout title={t('auth.login.title')} subtitle={t('auth.login.subtitle')}>
+      <Controller
+        control={control}
+        name="email"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <AuthInput
+            accessibilityLabel={t('auth.login.email')}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            label={t('auth.login.email')}
+            value={value}
+            onBlur={onBlur}
+            onChangeText={onChange}
+            error={Boolean(errors.email)}
+            returnKeyType="next"
+          />
+        )}
+      />
+      <HelperText type="error" visible={Boolean(errors.email)}>{errors.email?.message}</HelperText>
+      <Controller
+        control={control}
+        name="password"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <AuthInput
+            accessibilityLabel={t('auth.login.password')}
+            autoComplete="current-password"
+            label={t('auth.login.password')}
+            secureTextEntry={!passwordVisible}
+            value={value}
+            onBlur={onBlur}
+            onChangeText={onChange}
+            error={Boolean(errors.password)}
+            returnKeyType="done"
+            onSubmitEditing={submit}
+            right={(
+              <TextInput.Icon
+                accessibilityLabel={t(passwordVisible ? 'auth.password.hide' : 'auth.password.show')}
+                icon={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                onPress={() => setPasswordVisible((visible) => !visible)}
+              />
+            )}
+          />
+        )}
+      />
+      <HelperText type="error" visible={Boolean(errors.password)}>{errors.password?.message}</HelperText>
+      <View style={styles.options}>
+        <AuthCheckbox checked={rememberMe} label={t('auth.login.rememberMe')} onPress={() => setRememberMe((value) => !value)} />
+        <Pressable accessibilityRole="link" onPress={() => router.push('/forgot-password')}>
+          <Text style={styles.link}>{t('auth.login.forgotPassword')}</Text>
+        </Pressable>
       </View>
-      <BrandCard style={styles.card}>
-        <Text style={styles.title}>Вход в кабинет</Text>
-        <Text style={styles.subtitle}>Управляйте экранами, фидами и контентом в одном месте.</Text>
-
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              label="Email"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              error={!!errors.email}
-              style={styles.input}
-            />
-          )}
-        />
-        <HelperText type="error" visible={!!errors.email}>
-          {errors.email?.message}
-        </HelperText>
-
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              label="Пароль"
-              secureTextEntry
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              error={!!errors.password}
-              style={styles.input}
-            />
-          )}
-        />
-        <HelperText type="error" visible={!!errors.password}>
-          {errors.password?.message}
-        </HelperText>
-
-        {error ? (
-          <HelperText type="error" visible selectable>
-            {error}
-          </HelperText>
-        ) : null}
-
-        <Button mode="contained" onPress={handleSubmit(onSubmit)} loading={isSubmitting} style={styles.primary}>
-          Войти
-        </Button>
-        <Button mode="text" onPress={() => router.push('/register')}>Создать аккаунт</Button>
-      </BrandCard>
-    </ScrollView>
+      {error ? <Text accessibilityRole="alert" selectable style={styles.error}>{error}</Text> : null}
+      <AuthButton disabled={!isValid} loading={isSubmitting} onPress={submit}>
+        {t(isSubmitting ? 'auth.login.submitting' : 'auth.login.submit')}
+      </AuthButton>
+      <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>{t('auth.login.divider')}</Text><View style={styles.dividerLine} /></View>
+      <AuthButton secondary onPress={() => router.push('/register')}>{t('auth.login.createAccount')}</AuthButton>
+    </AuthLayout>
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flexGrow: 1,
-    backgroundColor: palette.ink,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 24,
-  },
-  hero: {
-    gap: 8,
-  },
-  brand: {
-    fontFamily: brandFonts.heading,
-    fontSize: 40,
-    color: palette.cream,
-  },
-  brandSub: {
-    color: palette.gold,
-    letterSpacing: 3,
-    fontSize: 12,
-    fontFamily: brandFonts.bodyEmphasis,
-  },
-  card: {
-    gap: 12,
-  },
-  title: {
-    fontFamily: brandFonts.heading,
-    fontSize: 24,
-    color: palette.charcoal,
-  },
-  subtitle: {
-    fontFamily: brandFonts.body,
-    color: palette.slate,
-  },
-  input: {
-    backgroundColor: '#FFFDF9',
-  },
-  primary: {
-    marginTop: 8,
-  },
+const createStyles = (colors: ReturnType<typeof useAppTheme>['colors']) => StyleSheet.create({
+  options: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 },
+  link: { color: colors.accent, fontFamily: 'Manrope-SemiBold', fontSize: 12 },
+  error: { color: colors.danger, fontFamily: 'Manrope-Regular', fontSize: 12, lineHeight: 18 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 3 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textMuted, fontFamily: 'Manrope-Regular', fontSize: 11 },
 });

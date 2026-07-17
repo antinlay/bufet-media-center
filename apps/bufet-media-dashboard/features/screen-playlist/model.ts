@@ -38,19 +38,25 @@ export interface UrlPreview {
   thumbnailUrl: string | null;
 }
 
+export type PlaylistLabels = {
+  video: string;
+  image: string;
+  noOrganization: string;
+};
+
 export function resolveMediaUrl(url?: string | null) {
   if (!url) return null;
   if (/^(https?:|data:|file:|blob:)/i.test(url)) return url;
   return `${apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-export function mapPlaylistItem(item: ConcertoPlaylistItem): PlaylistItemViewModel {
+export function mapPlaylistItem(item: ConcertoPlaylistItem, labels: PlaylistLabels): PlaylistItemViewModel {
   const type: PlaylistMediaType = item.type === 'Video' ? 'Video' : 'Graphic';
   return {
     submissionId: item.submissionId,
     contentId: item.contentId,
     type,
-    title: item.name?.trim() || (type === 'Video' ? 'Видео' : 'Изображение'),
+    title: item.name?.trim() || (type === 'Video' ? labels.video : labels.image),
     duration: item.duration ?? null,
     position: item.position,
     mediaUrl: resolveMediaUrl(item.mediaUrl),
@@ -61,21 +67,22 @@ export function mapPlaylistItem(item: ConcertoPlaylistItem): PlaylistItemViewMod
 export function mapPlaylistEditor(
   screen: ConcertoScreen,
   items: ConcertoPlaylistItem[],
+  labels: PlaylistLabels,
 ): PlaylistEditorViewModel {
   return {
     screenId: screen.id,
     screenName: screen.name,
-    organizationName: screen.group?.name ?? 'Без организации',
-    items: [...items].sort((left, right) => left.position - right.position).map(mapPlaylistItem),
+    organizationName: screen.group?.name ?? labels.noOrganization,
+    items: [...items].sort((left, right) => left.position - right.position).map((item) => mapPlaylistItem(item, labels)),
   };
 }
 
-export function mapLibraryItem(content: ConcertoContent): LibraryItemViewModel | null {
+export function mapLibraryItem(content: ConcertoContent, labels: PlaylistLabels): LibraryItemViewModel | null {
   if (content.type !== 'Graphic' && content.type !== 'Video') return null;
   return {
     id: content.id,
     type: content.type,
-    title: content.name?.trim() || `${content.type === 'Video' ? 'Видео' : 'Изображение'} #${content.id}`,
+    title: content.name?.trim() || `${content.type === 'Video' ? labels.video : labels.image} #${content.id}`,
     duration: content.duration ?? null,
     thumbnailUrl: resolveMediaUrl(content.thumbnailUrl ?? content.imageUrl),
     mediaUrl: resolveMediaUrl(content.url ?? content.imageUrl),
@@ -96,21 +103,21 @@ export function fileTitle(file: PickedFile) {
 }
 
 export function formatDuration(seconds?: number | null) {
-  if (!seconds || !Number.isFinite(seconds)) return 'Авто';
+  if (!seconds || !Number.isFinite(seconds)) return null;
   const minutes = Math.floor(seconds / 60);
   const rest = Math.floor(seconds % 60);
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
 }
 
-export function buildUrlPreview(value: string): UrlPreview {
+export function buildUrlPreview(value: string, linkedVideoLabel: string): UrlPreview {
   let url: URL;
   try {
     url = new URL(value.trim());
   } catch {
-    throw new Error('Введите корректную ссылку');
+    throw new Error('INVALID_URL');
   }
   if (!['http:', 'https:'].includes(url.protocol)) {
-    throw new Error('Поддерживаются только ссылки http и https');
+    throw new Error('UNSUPPORTED_URL_PROTOCOL');
   }
 
   const host = url.hostname.replace(/^www\./, '').toLowerCase();
@@ -126,7 +133,7 @@ export function buildUrlPreview(value: string): UrlPreview {
       ? 'Vimeo'
       : host.endsWith('tiktok.com')
         ? 'TikTok'
-        : 'Видео по ссылке';
+        : linkedVideoLabel;
   const pathTitle = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() ?? '')
     .replace(/[-_]+/g, ' ')
     .replace(/\.[^.]+$/, '')

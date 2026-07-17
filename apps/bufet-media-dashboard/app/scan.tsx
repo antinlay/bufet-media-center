@@ -8,7 +8,9 @@ import { TextInput } from '../components/TextInput';
 import { GalleryShell } from '../features/media-points/GalleryShell';
 import { useAddScreenByCode } from '../features/media-points/hooks';
 import { useProtectedRoute } from '../hooks/useProtectedRoute';
-import { brandFonts, palette } from '../theme';
+import { useAppTheme } from '../providers/AppThemeProvider';
+import { useI18n } from '../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../theme';
 
 function extractCode(value: string) {
   if (!value) return '';
@@ -44,18 +46,21 @@ export default function ScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const addMutation = useAddScreenByCode();
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors, radius.xl, radius.lg);
 
   const addCode = (rawCode: string) => {
     const code = extractCode(rawCode);
     if (!code) {
-      setLocalError('Не удалось распознать код');
+      setLocalError(t('scan.decodeError'));
       return;
     }
 
     setLocalError(null);
     setScanned(true);
     addMutation.mutate(
-      { code, organizationId },
+      { code, organizationId, screenName: t('pair.defaultScreenName', { code }) },
       {
         onSuccess: () => router.replace('/'),
         onError: () => setScanned(false),
@@ -63,34 +68,32 @@ export default function ScanScreen() {
     );
   };
 
-  const mutationError = addMutation.isError && addMutation.error instanceof Error
-    ? addMutation.error.message
-    : null;
+  const mutationError = addMutation.isError ? t('pair.addError') : null;
 
   return (
     <GalleryShell
       showBack
-      title="Сканировать QR"
+      title={t('scan.title')}
       subtitle={organizationName
-        ? `Экран будет добавлен в ${organizationName}`
-        : 'Экран появится в верхней секции без названия'}
+        ? t('scan.organizationSubtitle', { name: organizationName })
+        : t('scan.unassignedSubtitle')}
     >
       <View style={styles.card}>
-        <Text style={styles.title}>Наведите камеру на QR-код плеера</Text>
+        <Text style={styles.title}>{t('scan.cameraTitle')}</Text>
         {!permission ? (
           <View style={styles.permissionState}>
-            <Text style={styles.hint}>Проверяем доступ к камере…</Text>
+            <Text style={styles.hint}>{t('scan.checkingPermission')}</Text>
           </View>
         ) : !permission.granted ? (
           <View style={styles.permissionState}>
-            <Text style={styles.hint}>Разрешите доступ к камере, чтобы считать код с экрана.</Text>
+            <Text style={styles.hint}>{t('scan.permissionRequired')}</Text>
             <Button
               mode="contained"
-              buttonColor={palette.gold}
-              textColor={palette.ink}
+              buttonColor={colors.accent}
+              textColor={colors.onAccent}
               onPress={requestPermission}
             >
-              Разрешить камеру
+              {t('scan.allowCamera')}
             </Button>
           </View>
         ) : (
@@ -106,10 +109,10 @@ export default function ScanScreen() {
           </View>
         )}
 
-        <Text style={styles.manualTitle}>Или введите код вручную</Text>
+        <Text style={styles.manualTitle}>{t('scan.manualTitle')}</Text>
         <TextInput
           mode="outlined"
-          label="Код экрана"
+          label={t('pair.code')}
           value={manualCode}
           onChangeText={(value) => {
             setManualCode(value.toUpperCase());
@@ -118,9 +121,6 @@ export default function ScanScreen() {
           }}
           autoCapitalize="characters"
           autoCorrect={false}
-          textColor={palette.cream}
-          outlineColor="#4A4D55"
-          activeOutlineColor={palette.gold}
           style={styles.input}
         />
         {localError || mutationError ? (
@@ -130,44 +130,44 @@ export default function ScanScreen() {
         ) : null}
         <Button
           mode="contained"
-          buttonColor={palette.gold}
-          textColor={palette.ink}
+          buttonColor={colors.accent}
+          textColor={colors.onAccent}
           contentStyle={styles.buttonContent}
           disabled={!manualCode.trim() || addMutation.isPending}
           loading={addMutation.isPending}
           onPress={() => addCode(manualCode)}
         >
-          Добавить
+          {t('scan.submit')}
         </Button>
         {process.env.EXPO_OS === 'web' ? (
-          <Text style={styles.webHint}>На web камера доступна только через HTTPS или localhost.</Text>
+          <Text style={styles.webHint}>{t('scan.webHint')}</Text>
         ) : null}
       </View>
     </GalleryShell>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, borderRadius: number, smallRadius: number) => StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 680,
     alignSelf: 'center',
     gap: 14,
     padding: 22,
-    borderRadius: 22,
+    borderRadius,
     borderWidth: 1,
-    borderColor: '#2E3138',
-    backgroundColor: palette.panel,
-    boxShadow: '0 18px 48px rgba(0, 0, 0, 0.25)',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    boxShadow: colors.shadowStrong,
   },
   title: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 18,
     textAlign: 'center',
   },
   hint: {
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 13,
     lineHeight: 19,
@@ -179,8 +179,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     padding: 24,
-    borderRadius: 18,
-    backgroundColor: palette.panelRaised,
+    borderRadius: smallRadius,
+    backgroundColor: colors.surfaceElevated,
   },
   cameraFrame: {
     width: '100%',
@@ -188,8 +188,8 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignSelf: 'center',
     overflow: 'hidden',
-    borderRadius: 20,
-    backgroundColor: '#050607',
+    borderRadius: smallRadius,
+    backgroundColor: colors.surfaceMuted,
   },
   camera: {
     flex: 1,
@@ -200,18 +200,18 @@ const styles = StyleSheet.create({
     left: '20%',
     right: '20%',
     bottom: '20%',
-    borderRadius: 18,
+    borderRadius: smallRadius,
     borderWidth: 2,
-    borderColor: palette.gold,
+    borderColor: colors.accent,
   },
   manualTitle: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 14,
     marginTop: 4,
   },
   input: {
-    backgroundColor: palette.panelRaised,
+    backgroundColor: colors.inputBackground,
   },
   error: {
     paddingHorizontal: 0,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   webHint: {
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 11,
     textAlign: 'center',

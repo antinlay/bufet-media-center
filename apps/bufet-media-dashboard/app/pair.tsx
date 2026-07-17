@@ -8,7 +8,9 @@ import { TextInput } from '../components/TextInput';
 import { GalleryShell } from '../features/media-points/GalleryShell';
 import { useAddScreenByCode } from '../features/media-points/hooks';
 import { useProtectedRoute } from '../hooks/useProtectedRoute';
-import { brandFonts, palette } from '../theme';
+import { useAppTheme } from '../providers/AppThemeProvider';
+import { useI18n } from '../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../theme';
 
 function parseOrganizationId(value?: string | string[]) {
   const rawValue = Array.isArray(value) ? value[0] : value;
@@ -31,10 +33,13 @@ export default function AddScreen() {
   const initialCode = Array.isArray(params.code) ? params.code[0] : params.code;
   const [code, setCode] = useState(initialCode ?? '');
   const addMutation = useAddScreenByCode();
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors, radius.xl, radius.lg);
 
   const submit = () => {
     addMutation.mutate(
-      { code, organizationId },
+      { code, organizationId, screenName: t('pair.defaultScreenName', { code: code.trim().toUpperCase() }) },
       { onSuccess: () => router.replace('/') },
     );
   };
@@ -52,18 +57,18 @@ export default function AddScreen() {
   return (
     <GalleryShell
       showBack
-      title="Добавить экран"
-      subtitle={organizationName ? `Организация: ${organizationName}` : 'Без выбранной организации'}
+      title={t('pair.title')}
+      subtitle={organizationName ? t('pair.organization', { name: organizationName }) : t('pair.noOrganization')}
     >
       <View style={styles.card}>
         <View style={styles.qrPlaceholder}>
-          <MaterialCommunityIcons name="qrcode" color={palette.cream} size={84} />
+          <MaterialCommunityIcons name="qrcode" color={colors.textPrimary} size={84} />
         </View>
-        <Text style={styles.title}>Введите код экрана</Text>
-        <Text style={styles.hint}>Код берётся из QR-кода, который генерирует плеер на устройстве.</Text>
+        <Text style={styles.title}>{t('pair.codeTitle')}</Text>
+        <Text style={styles.hint}>{t('pair.codeHint')}</Text>
         <TextInput
           mode="outlined"
-          label="Код экрана"
+          label={t('pair.code')}
           value={code}
           onChangeText={(value) => {
             setCode(value.toUpperCase());
@@ -71,43 +76,40 @@ export default function AddScreen() {
           }}
           autoCapitalize="characters"
           autoCorrect={false}
-          textColor={palette.cream}
-          outlineColor="#4A4D55"
-          activeOutlineColor={palette.gold}
           style={styles.input}
         />
         {addMutation.isError ? (
           <HelperText type="error" visible style={styles.error}>
-            {addMutation.error instanceof Error ? addMutation.error.message : 'Не удалось добавить экран'}
+            {t('pair.addError')}
           </HelperText>
         ) : null}
         <Button
           mode="contained"
-          buttonColor={palette.gold}
-          textColor={palette.ink}
+          buttonColor={colors.accent}
+          textColor={colors.onAccent}
           contentStyle={styles.buttonContent}
           disabled={!code.trim() || addMutation.isPending}
           loading={addMutation.isPending}
           onPress={submit}
         >
-          Добавить
+          {t('pair.submit')}
         </Button>
         <Button
           mode="outlined"
           icon="qrcode-scan"
-          textColor={palette.cream}
+          textColor={colors.textPrimary}
           style={styles.scanButton}
           contentStyle={styles.scanButtonContent}
           onPress={openScanner}
         >
-          Сканировать QR
+          {t('pair.scan')}
         </Button>
       </View>
     </GalleryShell>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, borderRadius: number, smallRadius: number) => StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 620,
@@ -115,11 +117,11 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     gap: 13,
     padding: 26,
-    borderRadius: 22,
+    borderRadius,
     borderWidth: 1,
-    borderColor: '#2E3138',
-    backgroundColor: palette.panel,
-    boxShadow: '0 18px 48px rgba(0, 0, 0, 0.25)',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    boxShadow: colors.shadowStrong,
   },
   qrPlaceholder: {
     width: 132,
@@ -128,19 +130,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 5,
-    borderRadius: 20,
+    borderRadius: smallRadius,
     borderWidth: 1,
-    borderColor: '#373A42',
-    backgroundColor: palette.panelRaised,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
   },
   title: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 20,
     textAlign: 'center',
   },
   hint: {
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 13,
     lineHeight: 19,
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   input: {
-    backgroundColor: palette.panelRaised,
+    backgroundColor: colors.inputBackground,
   },
   error: {
     paddingHorizontal: 0,
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   scanButton: {
-    borderColor: '#454850',
+    borderColor: colors.borderStrong,
   },
   scanButtonContent: {
     minHeight: 44,

@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { PickedFile } from '../../lib/upload';
 import { mediaPointsQueryKey } from '../media-points/hooks';
 import { broadcastPlaylistChanged } from '../../lib/supabase-realtime';
 import type { LibraryItemViewModel, PlaylistItemViewModel } from './model';
+import { useI18n } from '../../providers/I18nProvider';
 import {
   addLibraryItems,
   addVideoUrl,
@@ -18,17 +20,21 @@ export const playlistEditorKey = (screenId: number) => ['screen-playlist-editor'
 export const mediaLibraryKey = ['media-library'] as const;
 
 export function usePlaylistEditor(screenId: number | null) {
+  const { language, t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useQuery({
-    queryKey: playlistEditorKey(screenId ?? 0),
-    queryFn: ({ signal }) => loadPlaylistEditor(screenId as number, signal),
+    queryKey: [...playlistEditorKey(screenId ?? 0), language],
+    queryFn: ({ signal }) => loadPlaylistEditor(screenId as number, labels, signal),
     enabled: Boolean(screenId),
   });
 }
 
 export function useMediaLibrary() {
+  const { language, t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useQuery({
-    queryKey: mediaLibraryKey,
-    queryFn: ({ signal }) => loadMediaLibrary(signal),
+    queryKey: [...mediaLibraryKey, language],
+    queryFn: ({ signal }) => loadMediaLibrary(labels, signal),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -47,25 +53,31 @@ function usePlaylistInvalidation(screenId: number) {
 
 export function useUploadPlaylistFiles(screenId: number) {
   const invalidate = usePlaylistInvalidation(screenId);
+  const { t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useMutation({
     mutationFn: ({ files, onProgress }: { files: PickedFile[]; onProgress?: (done: number, total: number) => void }) =>
-      uploadPlaylistFiles(screenId, files, onProgress),
+      uploadPlaylistFiles(screenId, files, labels, onProgress),
     onSuccess: invalidate,
   });
 }
 
 export function useAddLibraryItems(screenId: number) {
   const invalidate = usePlaylistInvalidation(screenId);
+  const { t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useMutation({
-    mutationFn: (items: LibraryItemViewModel[]) => addLibraryItems(screenId, items),
+    mutationFn: (items: LibraryItemViewModel[]) => addLibraryItems(screenId, items, labels),
     onSuccess: invalidate,
   });
 }
 
 export function useAddVideoUrl(screenId: number) {
   const invalidate = usePlaylistInvalidation(screenId);
+  const { t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useMutation({
-    mutationFn: ({ url, title }: { url: string; title: string }) => addVideoUrl(screenId, url, title),
+    mutationFn: ({ url, title }: { url: string; title: string }) => addVideoUrl(screenId, url, title, labels),
     onSuccess: invalidate,
   });
 }

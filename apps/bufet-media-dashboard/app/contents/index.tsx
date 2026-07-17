@@ -9,7 +9,9 @@ import { BrandCard } from '../../components/BrandCard';
 import { EmptyState } from '../../components/EmptyState';
 import { Section } from '../../components/Section';
 import { apiClient } from '../../lib/api';
-import { brandFonts, palette } from '../../theme';
+import { useAppTheme } from '../../providers/AppThemeProvider';
+import { useI18n } from '../../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 
 export default function ContentsScreen() {
@@ -25,6 +27,9 @@ export default function ContentsScreen() {
   const [renderAs, setRenderAs] = useState('plaintext');
   const [format, setFormat] = useState('h:mm a');
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const { colors } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -60,29 +65,29 @@ export default function ContentsScreen() {
 
   return (
     <AppShell
-      title="Материалы"
-      subtitle="Загружайте изображения, видео и текстовые блоки для плейлистов."
+      title={t('contents.title')}
+      subtitle={t('contents.subtitle')}
       actions={
         <Button mode="contained" onPress={() => queryClient.invalidateQueries({ queryKey: ['contents'] })}>
-          Обновить
+          {t('common.refresh')}
         </Button>
       }
     >
       <BrandCard>
-        <Text style={styles.cardTitle}>Новый материал</Text>
+        <Text style={styles.cardTitle}>{t('contents.newTitle')}</Text>
         <View style={styles.selectorRow}>
           <View style={styles.selector}>
-            <Text style={styles.selectorTitle}>Тип</Text>
+            <Text style={styles.selectorTitle}>{t('contents.type')}</Text>
             <RadioButton.Group value={type} onValueChange={setType}>
-              <RadioButton.Item label="Графика" value="Graphic" labelStyle={styles.radioLabel} />
-              <RadioButton.Item label="Видео" value="Video" labelStyle={styles.radioLabel} />
-              <RadioButton.Item label="Текст" value="RichText" labelStyle={styles.radioLabel} />
-              <RadioButton.Item label="Часы" value="Clock" labelStyle={styles.radioLabel} />
+              <RadioButton.Item label={t('contents.typeGraphic')} value="Graphic" labelStyle={styles.radioLabel} />
+              <RadioButton.Item label={t('contents.typeVideo')} value="Video" labelStyle={styles.radioLabel} />
+              <RadioButton.Item label={t('contents.typeText')} value="RichText" labelStyle={styles.radioLabel} />
+              <RadioButton.Item label={t('contents.typeClock')} value="Clock" labelStyle={styles.radioLabel} />
             </RadioButton.Group>
           </View>
         </View>
-        <TextInput label="Название" value={name} onChangeText={setName} style={styles.input} />
-        <TextInput label="Длительность (сек)" value={duration} onChangeText={setDuration} style={styles.input} />
+        <TextInput label={t('contents.name')} value={name} onChangeText={setName} style={styles.input} />
+        <TextInput label={t('contents.duration')} value={duration} onChangeText={setDuration} style={styles.input} />
         {type === 'Graphic' ? (
           <Button
             mode="outlined"
@@ -91,36 +96,36 @@ export default function ContentsScreen() {
               if (!result.canceled) setFile(result.assets[0]);
             }}
           >
-            {file ? `Файл: ${file.name}` : 'Выбрать изображение'}
+            {file ? t('contents.file', { name: file.name }) : t('contents.chooseImage')}
           </Button>
         ) : null}
         {type === 'Video' ? (
-          <TextInput label="URL видео" value={url} onChangeText={setUrl} style={styles.input} />
+          <TextInput label={t('contents.videoUrl')} value={url} onChangeText={setUrl} style={styles.input} />
         ) : null}
         {type === 'RichText' ? (
           <>
-            <TextInput label="Текст" value={text} onChangeText={setText} style={styles.input} multiline />
-            <TextInput label="Режим (plaintext/html)" value={renderAs} onChangeText={setRenderAs} style={styles.input} />
+            <TextInput label={t('contents.text')} value={text} onChangeText={setText} style={styles.input} multiline />
+            <TextInput label={t('contents.renderMode')} value={renderAs} onChangeText={setRenderAs} style={styles.input} />
           </>
         ) : null}
         {type === 'Clock' ? (
-          <TextInput label="Формат" value={format} onChangeText={setFormat} style={styles.input} />
+          <TextInput label={t('contents.format')} value={format} onChangeText={setFormat} style={styles.input} />
         ) : null}
         <Button mode="contained" onPress={() => createMutation.mutate()} loading={createMutation.isPending}>
-          Создать контент
+          {t('contents.create')}
         </Button>
       </BrandCard>
 
-      <Section title="Библиотека" subtitle="Все загруженные материалы.">
+      <Section title={t('contents.library')} subtitle={t('contents.librarySubtitle')}>
         {contents.length === 0 ? (
-          <EmptyState title="Материалов нет" subtitle="Добавьте изображения, видео или текст." />
+          <EmptyState title={t('contents.emptyTitle')} subtitle={t('contents.emptySubtitle')} />
         ) : (
           contents.map((content) => (
             <BrandCard key={content.id}>
-              <Text style={styles.contentName}>{content.name ?? `Материал #${content.id}`}</Text>
-              <Text style={styles.contentMeta}>Тип: {content.type}</Text>
-              {content.imageUrl ? <Text style={styles.contentMeta}>Изображение: {content.imageUrl}</Text> : null}
-              {content.url ? <Text style={styles.contentMeta}>URL: {content.url}</Text> : null}
+              <Text style={styles.contentName}>{content.name ?? t('contents.unnamed', { id: content.id })}</Text>
+              <Text style={styles.contentMeta}>{t('contents.metaType', { type: content.type })}</Text>
+              {content.imageUrl ? <Text selectable style={styles.contentMeta}>{t('contents.metaImage', { url: content.imageUrl })}</Text> : null}
+              {content.url ? <Text selectable style={styles.contentMeta}>{t('contents.metaUrl', { url: content.url })}</Text> : null}
             </BrandCard>
           ))
         )}
@@ -129,15 +134,15 @@ export default function ContentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   cardTitle: {
     fontFamily: brandFonts.heading,
     fontSize: 20,
-    color: palette.charcoal,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: colors.inputBackground,
     marginBottom: 12,
   },
   selectorRow: {
@@ -152,7 +157,7 @@ const styles = StyleSheet.create({
   },
   selectorTitle: {
     fontFamily: brandFonts.bodyEmphasis,
-    color: palette.slate,
+    color: colors.textSecondary,
     marginBottom: 6,
   },
   radioLabel: {
@@ -162,11 +167,11 @@ const styles = StyleSheet.create({
   contentName: {
     fontFamily: brandFonts.heading,
     fontSize: 18,
-    color: palette.charcoal,
+    color: colors.textPrimary,
   },
   contentMeta: {
     fontFamily: brandFonts.body,
-    color: palette.slate,
+    color: colors.textSecondary,
     marginTop: 4,
   },
 });

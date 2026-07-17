@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
-import { brandFonts, palette } from '../theme';
+import { brandFonts, type AppColors } from '../theme';
+import { useAppTheme } from '../providers/AppThemeProvider';
 
 type EmptyStateProps = {
   title: string;
@@ -10,6 +11,8 @@ type EmptyStateProps = {
 };
 
 export function EmptyState({ title, subtitle, actionLabel, onAction }: EmptyStateProps) {
+  const { colors, radius } = useAppTheme();
+  const styles = createStyles(colors, radius.lg);
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
@@ -23,25 +26,25 @@ export function EmptyState({ title, subtitle, actionLabel, onAction }: EmptyStat
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.create({
   container: {
     padding: 16,
-    borderRadius: 16,
+    borderRadius,
     borderWidth: 1,
-    borderColor: palette.fog,
-    backgroundColor: '#FFFDF9',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     gap: 6,
   },
   title: {
     fontFamily: brandFonts.heading,
     fontSize: 18,
-    color: palette.charcoal,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   subtitle: {
     fontFamily: brandFonts.body,
-    color: palette.slate,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

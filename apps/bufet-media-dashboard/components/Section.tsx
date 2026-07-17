@@ -1,9 +1,12 @@
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { brandFonts, palette } from '../theme';
+import { brandFonts, type AppColors } from '../theme';
+import { useAppTheme } from '../providers/AppThemeProvider';
 
 export function Section({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: ReactNode; children: ReactNode }) {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -18,7 +21,7 @@ export function Section({ title, subtitle, actions, children }: { title: string;
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   container: {
     gap: 12,
   },
@@ -38,11 +41,11 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: brandFonts.heading,
     fontSize: 20,
-    color: palette.charcoal,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontFamily: brandFonts.body,
-    color: palette.slate,
+    color: colors.textSecondary,
   },
   body: {
     gap: 12,

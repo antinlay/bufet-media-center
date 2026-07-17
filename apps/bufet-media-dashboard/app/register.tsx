@@ -1,191 +1,100 @@
-import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { ScrollView, View, StyleSheet } from 'react-native';
-import { Text, Button, HelperText } from 'react-native-paper';
-import { TextInput } from '../components/TextInput';
-import { useAuth } from '../providers/AuthProvider';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { useProtectedRoute } from '../hooks/useProtectedRoute';
-import { BrandCard } from '../components/BrandCard';
-import { brandFonts, palette } from '../theme';
+import { useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { StyleSheet, Text } from 'react-native';
+import { HelperText, TextInput } from 'react-native-paper';
+import { z } from 'zod';
+import { AuthButton, AuthInput } from '@/components/auth-controls';
+import { AuthLayout } from '@/components/auth-layout';
+import { useProtectedRoute } from '@/hooks/useProtectedRoute';
+import { useAppTheme } from '@/providers/AppThemeProvider';
+import { useAuth } from '@/providers/AuthProvider';
+import { useI18n } from '@/providers/I18nProvider';
 
-const registerSchema = z.object({
-  firstName: z.string().min(1, 'Укажите имя'),
-  lastName: z.string().min(1, 'Укажите фамилию'),
-  email: z.string().email({ message: 'Укажите email' }),
-  password: z.string().min(6, 'Минимум 6 символов'),
-});
-
-type RegisterForm = z.infer<typeof registerSchema>;
+type RegisterForm = { firstName: string; lastName: string; email: string; password: string };
 
 export default function RegisterScreen() {
   useProtectedRoute();
   const router = useRouter();
   const { register } = useAuth();
+  const { colors } = useAppTheme();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
-  const {
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    control,
-  } = useForm<RegisterForm>({
-    resolver: standardSchemaResolver(registerSchema),
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const styles = StyleSheet.create({ error: { color: colors.danger, fontFamily: 'Manrope-Regular', fontSize: 12 } });
+  const schema = useMemo(() => z.object({
+    firstName: z.string().trim().min(1, t('auth.register.firstNameRequired')),
+    lastName: z.string().trim().min(1, t('auth.register.lastNameRequired')),
+    email: z.string().trim().email({ message: t('auth.login.emailRequired') }),
+    password: z.string().min(1, t('auth.login.passwordRequired')).min(6, t('auth.login.passwordMin')),
+  }), [t]);
+  const { handleSubmit, formState: { errors, isSubmitting, isValid }, control } = useForm<RegisterForm>({
+    resolver: standardSchemaResolver(schema),
     defaultValues: { firstName: '', lastName: '', email: '', password: '' },
+    mode: 'onChange',
   });
 
   const onSubmit = async (values: RegisterForm) => {
     setError(null);
     try {
-      await register(values.firstName, values.lastName, values.email, values.password);
+      await register(values.firstName.trim(), values.lastName.trim(), values.email.trim(), values.password);
       router.replace('/');
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Ошибка регистрации');
+    } catch {
+      setError(t('auth.register.error'));
     }
   };
+  const submit = handleSubmit(onSubmit);
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.page}
-    >
-      <View style={styles.hero}>
-        <Text style={styles.brand}>Буфет</Text>
-        <Text style={styles.brandSub}>НОВЫЙ ЛИЧНЫЙ КАБИНЕТ</Text>
-      </View>
-      <BrandCard style={styles.card}>
-        <Text style={styles.title}>Регистрация</Text>
-        <Text style={styles.subtitle}>Создайте аккаунт для управления контентом и командами.</Text>
-
+    <AuthLayout title={t('auth.register.title')} subtitle={t('auth.register.subtitle')}>
+      {(['firstName', 'lastName', 'email'] as const).map((name, index) => (
         <Controller
+          key={name}
           control={control}
-          name="firstName"
+          name={name}
           render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              label="Имя"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              error={!!errors.firstName}
-              style={styles.input}
-            />
+            <>
+              <AuthInput
+                accessibilityLabel={t(name === 'firstName' ? 'auth.register.firstName' : name === 'lastName' ? 'auth.register.lastName' : 'auth.login.email')}
+                autoCapitalize={name === 'email' ? 'none' : 'words'}
+                autoComplete={name === 'email' ? 'email' : name === 'firstName' ? 'given-name' : 'family-name'}
+                keyboardType={name === 'email' ? 'email-address' : 'default'}
+                label={t(name === 'firstName' ? 'auth.register.firstName' : name === 'lastName' ? 'auth.register.lastName' : 'auth.login.email')}
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                error={Boolean(errors[name])}
+                returnKeyType={index === 2 ? 'next' : 'next'}
+              />
+              <HelperText type="error" visible={Boolean(errors[name])}>{errors[name]?.message}</HelperText>
+            </>
           )}
         />
-        <HelperText type="error" visible={!!errors.firstName}>
-          {errors.firstName?.message}
-        </HelperText>
-
-        <Controller
-          control={control}
-          name="lastName"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              label="Фамилия"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              error={!!errors.lastName}
-              style={styles.input}
-            />
-          )}
-        />
-        <HelperText type="error" visible={!!errors.lastName}>
-          {errors.lastName?.message}
-        </HelperText>
-
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              label="Email"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              error={!!errors.email}
-              style={styles.input}
-            />
-          )}
-        />
-        <HelperText type="error" visible={!!errors.email}>
-          {errors.email?.message}
-        </HelperText>
-
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              label="Пароль"
-              secureTextEntry
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              error={!!errors.password}
-              style={styles.input}
-            />
-          )}
-        />
-        <HelperText type="error" visible={!!errors.password}>
-          {errors.password?.message}
-        </HelperText>
-
-        {error ? (
-          <HelperText type="error" visible selectable>
-            {error}
-          </HelperText>
-        ) : null}
-
-        <Button mode="contained" onPress={handleSubmit(onSubmit)} loading={isSubmitting} style={styles.primary}>
-          Создать аккаунт
-        </Button>
-        <Button mode="text" onPress={() => router.push('/login')}>Уже есть аккаунт</Button>
-      </BrandCard>
-    </ScrollView>
+      ))}
+      <Controller
+        control={control}
+        name="password"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <AuthInput
+            accessibilityLabel={t('auth.login.password')}
+            autoComplete="new-password"
+            label={t('auth.login.password')}
+            secureTextEntry={!passwordVisible}
+            value={value}
+            onBlur={onBlur}
+            onChangeText={onChange}
+            error={Boolean(errors.password)}
+            returnKeyType="done"
+            onSubmitEditing={submit}
+            right={<TextInput.Icon accessibilityLabel={t(passwordVisible ? 'auth.password.hide' : 'auth.password.show')} icon={passwordVisible ? 'eye-off-outline' : 'eye-outline'} onPress={() => setPasswordVisible((visible) => !visible)} />}
+          />
+        )}
+      />
+      <HelperText type="error" visible={Boolean(errors.password)}>{errors.password?.message}</HelperText>
+      {error ? <Text accessibilityRole="alert" selectable style={styles.error}>{error}</Text> : null}
+      <AuthButton disabled={!isValid} loading={isSubmitting} onPress={submit}>{t(isSubmitting ? 'auth.register.submitting' : 'auth.register.submit')}</AuthButton>
+      <AuthButton secondary onPress={() => router.replace('/login')}>{t('auth.register.backToLogin')}</AuthButton>
+    </AuthLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  page: {
-    flexGrow: 1,
-    backgroundColor: palette.ink,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 24,
-  },
-  hero: {
-    gap: 8,
-  },
-  brand: {
-    fontFamily: brandFonts.heading,
-    fontSize: 40,
-    color: palette.cream,
-  },
-  brandSub: {
-    color: palette.gold,
-    letterSpacing: 3,
-    fontSize: 12,
-    fontFamily: brandFonts.bodyEmphasis,
-  },
-  card: {
-    gap: 12,
-  },
-  title: {
-    fontFamily: brandFonts.heading,
-    fontSize: 24,
-    color: palette.charcoal,
-  },
-  subtitle: {
-    fontFamily: brandFonts.body,
-    color: palette.slate,
-  },
-  input: {
-    backgroundColor: '#FFFDF9',
-  },
-  primary: {
-    marginTop: 8,
-  },
-});

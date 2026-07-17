@@ -37,7 +37,7 @@ export async function pickMediaFiles(): Promise<PickedFile[]> {
   });
   if (result.canceled) return [];
   if (result.assets.length > MAX_MEDIA_PICK_COUNT) {
-    throw new Error(`Можно выбрать не больше ${MAX_MEDIA_PICK_COUNT} файлов`);
+    throw new Error('MEDIA_SELECTION_LIMIT_EXCEEDED');
   }
   return result.assets.map(mapAsset);
 }

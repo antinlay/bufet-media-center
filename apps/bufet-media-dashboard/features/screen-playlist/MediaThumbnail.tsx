@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { palette } from '../../theme';
+import { useAppTheme } from '../../providers/AppThemeProvider';
 import type { PlaylistMediaType } from './model';
 
 export function MediaThumbnail({
@@ -18,6 +18,7 @@ export function MediaThumbnail({
 }) {
   const [loading, setLoading] = useState(Boolean(uri));
   const [failed, setFailed] = useState(false);
+  const { colors } = useAppTheme();
 
   useEffect(() => {
     setLoading(Boolean(uri));
@@ -25,7 +26,7 @@ export function MediaThumbnail({
   }, [uri]);
 
   return (
-    <View style={[styles.frame, style]}>
+    <View style={[styles.frame, { backgroundColor: colors.surfaceMuted }, style]}>
       {uri && !failed ? (
         <Image
           source={{ uri }}
@@ -42,11 +43,11 @@ export function MediaThumbnail({
       ) : (
         <MaterialCommunityIcons
           name={type === 'Video' ? 'play-circle-outline' : 'image-outline'}
-          color={palette.gold}
+          color={colors.accent}
           size={28}
         />
       )}
-      {loading ? <ActivityIndicator color={palette.gold} size="small" /> : null}
+      {loading ? <ActivityIndicator color={colors.accent} size="small" /> : null}
     </View>
   );
 }
@@ -56,6 +57,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#23262D',
   },
 });

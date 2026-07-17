@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useRouter, useSegments } from 'expo-router';
 
-const publicSegments = new Set(['login', 'register']);
+const publicSegments = new Set(['login', 'register', 'forgot-password']);
 
 export function useProtectedRoute() {
   const { token, loading } = useAuth();
@@ -11,7 +11,7 @@ export function useProtectedRoute() {
 
   useEffect(() => {
     if (loading) return;
-  const inAuthGroup = publicSegments.has(segments[0]);
+    const inAuthGroup = publicSegments.has(segments[0]);
     if (!token && !inAuthGroup) {
       router.replace('/login');
     }

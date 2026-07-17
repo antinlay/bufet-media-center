@@ -55,9 +55,9 @@ async function request(path: string, init: RequestOptions = {}): Promise<Respons
       throw error;
     }
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new ApiError('Сервер не ответил вовремя', 0, 'TIMEOUT');
+      throw new ApiError('REQUEST_TIMEOUT', 0, 'TIMEOUT');
     }
-    throw new ApiError('Не удалось подключиться к серверу', 0, 'NETWORK_ERROR');
+    throw new ApiError('NETWORK_ERROR', 0, 'NETWORK_ERROR');
   } finally {
     clearTimeout(timeoutId);
     callerSignal?.removeEventListener('abort', abortFromCaller);
@@ -72,7 +72,7 @@ function appendNativeFile(form: FormData, field: string, file: PickedFile) {
 async function readWebFile(file: PickedFile): Promise<Blob> {
   const response = await fetch(file.uri);
   if (!response.ok) {
-    throw new ApiError(`Не удалось прочитать файл ${file.name}`, response.status, 'HTTP_ERROR');
+    throw new ApiError('FILE_READ_ERROR', response.status, 'HTTP_ERROR');
   }
   return response.blob();
 }

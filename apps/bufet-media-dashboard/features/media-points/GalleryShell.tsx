@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { IconButton, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../providers/AuthProvider';
-import { brandFonts, palette } from '../../theme';
+import { brandFonts, type AppColors } from '../../theme';
+import { useAppTheme } from '../../providers/AppThemeProvider';
+import { useI18n } from '../../providers/I18nProvider';
+import { PreferenceControls } from '../../components/preference-controls';
 
 interface GalleryShellProps {
   children: ReactNode;
@@ -30,6 +33,10 @@ export function GalleryShell({
 }: GalleryShellProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { width } = useWindowDimensions();
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors, radius.md);
 
   const goBack = () => {
     if (onBackPress) {
@@ -52,22 +59,25 @@ export function GalleryShell({
               {showBack ? (
                 <IconButton
                   icon="chevron-left"
-                  iconColor={palette.cream}
+                  iconColor={colors.textPrimary}
                   size={28}
                   onPress={goBack}
-                  accessibilityLabel="Назад"
+                  accessibilityLabel={t('common.back')}
                 />
               ) : (
                 <View style={styles.brandMark}>
-                  <Text style={styles.brandMarkText}>Б</Text>
+                  <Text style={styles.brandMarkText}>{t('brand.name').slice(0, 1)}</Text>
                 </View>
               )}
               <View style={styles.brandCopy}>
-                <Text style={styles.brandTitle}>{title ?? 'Буфет'}</Text>
-                {title ? null : <Text style={styles.brandSubtitle}>В ОБЕД</Text>}
+                <Text style={styles.brandTitle}>{title ?? t('brand.name')}</Text>
+                {title ? null : <Text style={styles.brandSubtitle}>{t('brand.tagline')}</Text>}
               </View>
             </View>
-            {toolbarActions ? <View style={styles.toolbarActions}>{toolbarActions}</View> : null}
+            <View style={styles.toolbarActions}>
+              {toolbarActions}
+              <PreferenceControls compact={width < 760} />
+            </View>
           </View>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
@@ -83,7 +93,7 @@ export function GalleryShell({
             {showAccount ? (
               <View style={styles.account}>
                 <Text style={styles.accountName}>
-                  {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Пользователь'}
+                  {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || t('common.user')}
                 </Text>
                 <Text style={styles.accountEmail}>{user?.email}</Text>
                 <Pressable
@@ -91,7 +101,7 @@ export function GalleryShell({
                   onPress={logout}
                   style={({ pressed }) => [styles.logoutButton, pressed && styles.buttonPressed]}
                 >
-                  <Text style={styles.logoutText}>Выйти</Text>
+                  <Text style={styles.logoutText}>{t('nav.logout')}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -104,14 +114,14 @@ export function GalleryShell({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: palette.ink,
+    backgroundColor: colors.background,
   },
   page: {
     flex: 1,
-    backgroundColor: palette.ink,
+    backgroundColor: colors.background,
   },
   toolbarFrame: {
     width: '100%',
@@ -121,7 +131,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2A2D34',
+    borderBottomColor: colors.border,
   },
   toolbar: {
     minHeight: 58,
@@ -144,15 +154,15 @@ const styles = StyleSheet.create({
   brandMark: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.panelRaised,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: '#2F323A',
+    borderColor: colors.border,
   },
   brandMarkText: {
-    color: palette.gold,
+    color: colors.accent,
     fontFamily: brandFonts.heading,
     fontSize: 20,
   },
@@ -161,18 +171,18 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   brandTitle: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.heading,
     fontSize: 22,
   },
   brandSubtitle: {
-    color: palette.gold,
+    color: colors.accent,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 9,
     letterSpacing: 2.2,
   },
   subtitle: {
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 13,
     marginLeft: 58,
@@ -201,17 +211,17 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 36,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#2A2D34',
+    borderTopColor: colors.border,
     alignItems: 'flex-start',
     gap: 5,
   },
   accountName: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 14,
   },
   accountEmail: {
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 12,
   },
@@ -220,13 +230,13 @@ const styles = StyleSheet.create({
     marginTop: 9,
     paddingHorizontal: 18,
     paddingVertical: 9,
-    borderRadius: 12,
+    borderRadius,
     borderWidth: 1,
-    borderColor: palette.gold,
+    borderColor: colors.accent,
     alignItems: 'center',
   },
   logoutText: {
-    color: palette.gold,
+    color: colors.accent,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 12,
   },

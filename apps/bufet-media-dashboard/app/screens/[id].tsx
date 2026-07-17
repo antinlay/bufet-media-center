@@ -16,7 +16,9 @@ import { MediaThumbnail } from '../../features/screen-playlist/MediaThumbnail';
 import { formatDuration, type PlaylistItemViewModel } from '../../features/screen-playlist/model';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { pickMediaFiles } from '../../lib/upload';
-import { brandFonts, palette } from '../../theme';
+import { useAppTheme } from '../../providers/AppThemeProvider';
+import { useI18n } from '../../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../../theme';
 
 type ScreenParams = { id?: string };
 
@@ -53,6 +55,10 @@ export default function PlaylistEditorScreen() {
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const pendingRouteRef = useRef<'url' | 'library' | null>(null);
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors, radius.lg, radius.xl);
+  const addMenuItemTheme = { colors: { onSurface: colors.textPrimary, onSurfaceVariant: colors.textPrimary } };
 
   useEffect(() => {
     dirtyRef.current = dirty;
@@ -79,12 +85,12 @@ export default function PlaylistEditorScreen() {
     }
     const leave = () => router.back();
     if (Platform.OS === 'web') {
-      if (window.confirm('Выйти без сохранения порядка?')) leave();
+      if (window.confirm(t('playlist.unsavedMessage'))) leave();
       return;
     }
-    Alert.alert('Несохранённые изменения', 'Выйти без сохранения порядка?', [
-      { text: 'Остаться', style: 'cancel' },
-      { text: 'Выйти', style: 'destructive', onPress: leave },
+    Alert.alert(t('playlist.unsavedTitle'), t('playlist.unsavedMessage'), [
+      { text: t('common.stay'), style: 'cancel' },
+      { text: t('common.leave'), style: 'destructive', onPress: leave },
     ]);
   };
 
@@ -106,13 +112,13 @@ export default function PlaylistEditorScreen() {
             setDirty(true);
           },
           onError: (mutationError) => {
-            setError(mutationError instanceof Error ? mutationError.message : 'Не удалось загрузить файлы');
+            setError(t('playlist.uploadFilesError'));
           },
           onSettled: () => setUploadProgress(null),
         },
       );
-    } catch (pickerError) {
-      setError(pickerError instanceof Error ? pickerError.message : 'Не удалось выбрать файлы');
+    } catch {
+      setError(t('playlist.pickFilesError'));
     }
   };
 
@@ -124,10 +130,10 @@ export default function PlaylistEditorScreen() {
       onSuccess: () => {
         setItems((current) => normalizeOrder(current));
         setDirty(false);
-        setSuccess('Плейлист сохранён');
+        setSuccess(t('playlist.saved'));
       },
       onError: (mutationError) => {
-        setError(mutationError instanceof Error ? mutationError.message : 'Не удалось сохранить плейлист');
+        setError(t('playlist.saveError'));
       },
     });
   };
@@ -140,16 +146,16 @@ export default function PlaylistEditorScreen() {
         setDirty(true);
       },
       onError: (mutationError) => {
-        setError(mutationError instanceof Error ? mutationError.message : 'Не удалось удалить медиа');
+        setError(t('playlist.deleteError'));
       },
     });
     if (Platform.OS === 'web') {
-      if (window.confirm(`Удалить «${item.title}» из плейлиста?`)) remove();
+      if (window.confirm(t('playlist.removeConfirm', { name: item.title }))) remove();
       return;
     }
-    Alert.alert('Удалить медиа?', item.title, [
-      { text: 'Отмена', style: 'cancel' },
-      { text: 'Удалить', style: 'destructive', onPress: remove },
+    Alert.alert(t('playlist.deleteTitle'), item.title, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: remove },
     ]);
   };
 
@@ -162,26 +168,26 @@ export default function PlaylistEditorScreen() {
       anchor={
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Добавить медиа"
+          accessibilityLabel={t('playlist.addMedia')}
           onPress={() => setAddMenuOpen(true)}
           style={({ pressed }) => [styles.plusButton, pressed && styles.pressed]}
         >
-          <MaterialCommunityIcons name="plus" color={palette.ink} size={25} />
+          <MaterialCommunityIcons name="plus" color={colors.onAccent} size={25} />
         </Pressable>
       }
     >
       <Menu.Item
         leadingIcon="cellphone"
-        title="С устройства"
+        title={t('playlist.addFromDevice')}
         onPress={uploadFromDevice}
         style={styles.addMenuItem}
         titleStyle={styles.addMenuTitle}
         theme={addMenuItemTheme}
-        rippleColor="rgba(242, 160, 24, 0.16)"
+        rippleColor={colors.accentMuted}
       />
       <Menu.Item
         leadingIcon="link-variant"
-        title="По ссылке"
+        title={t('playlist.addByLink')}
         onPress={() => {
           pendingRouteRef.current = 'url';
           setAddMenuOpen(false);
@@ -189,11 +195,11 @@ export default function PlaylistEditorScreen() {
         style={styles.addMenuItem}
         titleStyle={styles.addMenuTitle}
         theme={addMenuItemTheme}
-        rippleColor="rgba(242, 160, 24, 0.16)"
+        rippleColor={colors.accentMuted}
       />
       <Menu.Item
         leadingIcon="image-multiple-outline"
-        title="Из библиотеки"
+        title={t('playlist.addFromLibrary')}
         onPress={() => {
           pendingRouteRef.current = 'library';
           setAddMenuOpen(false);
@@ -201,24 +207,24 @@ export default function PlaylistEditorScreen() {
         style={styles.addMenuItem}
         titleStyle={styles.addMenuTitle}
         theme={addMenuItemTheme}
-        rippleColor="rgba(242, 160, 24, 0.16)"
+        rippleColor={colors.accentMuted}
       />
     </Menu>
   );
 
   if (!screenId || Number.isNaN(screenId)) {
-    return <StateScreen title="Экран не найден" message="Проверьте ссылку и вернитесь в галерею." />;
+    return <StateScreen title={t('playlist.notFound')} message={t('playlist.notFoundMessage')} />;
   }
 
   if (editorQuery.isLoading) {
-    return <StateScreen loading title="Редактирование плейлиста" message="Загружаем экран…" />;
+    return <StateScreen loading title={t('playlist.editTitle')} message={t('playlist.loading')} />;
   }
 
   if (editorQuery.isError || !editorQuery.data) {
     return (
       <StateScreen
-        title="Экран не найден"
-        message={editorQuery.error instanceof Error ? editorQuery.error.message : 'Не удалось загрузить плейлист'}
+        title={t('playlist.notFound')}
+        message={t('playlist.loadError')}
         onRetry={() => editorQuery.refetch()}
       />
     );
@@ -226,7 +232,7 @@ export default function PlaylistEditorScreen() {
 
   return (
     <GalleryShell
-      title="Редактирование плейлиста"
+      title={t('playlist.editTitle')}
       subtitle={`${editorQuery.data.organizationName} · ${editorQuery.data.screenName}`}
       showBack
       scrollable={false}
@@ -238,10 +244,9 @@ export default function PlaylistEditorScreen() {
         {success ? <MessageBanner text={success} /> : null}
         {uploadProgress ? (
           <View style={styles.progressBanner}>
-            <ActivityIndicator color={palette.gold} size="small" />
+            <ActivityIndicator color={colors.accent} size="small" />
             <Text style={styles.progressText}>
-              Загружаем {uploadProgress.done + 1 > uploadProgress.total ? uploadProgress.total : uploadProgress.done + 1}
-              {' '}из {uploadProgress.total}
+              {t('playlist.loadingProgress', { current: uploadProgress.done + 1 > uploadProgress.total ? uploadProgress.total : uploadProgress.done + 1, total: uploadProgress.total })}
             </Text>
           </View>
         ) : null}
@@ -255,9 +260,9 @@ export default function PlaylistEditorScreen() {
           contentContainerStyle={items.length ? styles.listContent : styles.emptyListContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="playlist-plus" color={palette.gold} size={38} />
-              <Text style={styles.emptyTitle}>Плейлист пуст</Text>
-              <Text style={styles.emptyText}>Нажмите +, чтобы добавить изображение или видео.</Text>
+              <MaterialCommunityIcons name="playlist-plus" color={colors.accent} size={38} />
+              <Text style={styles.emptyTitle}>{t('playlist.emptyTitle')}</Text>
+              <Text style={styles.emptyText}>{t('playlist.emptySubtitle')}</Text>
             </View>
           }
           onDragEnd={({ data }) => {
@@ -272,17 +277,17 @@ export default function PlaylistEditorScreen() {
                 <View style={styles.itemCopy}>
                   <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
                   <Text style={styles.itemMeta}>
-                    {item.type === 'Video' ? 'Видео' : 'Изображение'} · {formatDuration(item.duration)}
+                    {t(item.type === 'Video' ? 'playlist.mediaVideo' : 'playlist.mediaImage')} · {formatDuration(item.duration) ?? t('playlist.durationAuto')}
                   </Text>
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Переместить ${item.title}`}
+                  accessibilityLabel={t('playlist.moveA11y', { name: item.title })}
                   onLongPress={drag}
                   onPressIn={drag}
                   style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}
                 >
-                  <MaterialCommunityIcons name="drag-vertical" color={palette.muted} size={25} />
+                  <MaterialCommunityIcons name="drag-vertical" color={colors.textMuted} size={25} />
                 </Pressable>
                 <Menu
                   visible={itemMenuId === item.submissionId}
@@ -291,17 +296,17 @@ export default function PlaylistEditorScreen() {
                   anchor={
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Действия с ${item.title}`}
+                      accessibilityLabel={t('playlist.actionsA11y', { name: item.title })}
                       onPress={() => setItemMenuId(item.submissionId)}
                       style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}
                     >
-                      <MaterialCommunityIcons name="dots-vertical" color={palette.cream} size={23} />
+                      <MaterialCommunityIcons name="dots-vertical" color={colors.textPrimary} size={23} />
                     </Pressable>
                   }
                 >
                   <Menu.Item
                     leadingIcon="trash-can-outline"
-                    title="Удалить"
+                    title={t('common.delete')}
                     onPress={() => requestDelete(item)}
                   />
                 </Menu>
@@ -322,9 +327,9 @@ export default function PlaylistEditorScreen() {
             ]}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator color={palette.ink} size="small" />
+              <ActivityIndicator color={colors.onAccent} size="small" />
             ) : (
-              <Text style={styles.saveText}>Сохранить</Text>
+              <Text style={styles.saveText}>{t('common.save')}</Text>
             )}
           </Pressable>
         </View>
@@ -334,11 +339,13 @@ export default function PlaylistEditorScreen() {
 }
 
 function MessageBanner({ text, danger = false }: { text: string; danger?: boolean }) {
+  const { colors, radius } = useAppTheme();
+  const styles = createStyles(colors, radius.lg, radius.xl);
   return (
     <View style={[styles.messageBanner, danger && styles.messageBannerDanger]}>
       <MaterialCommunityIcons
         name={danger ? 'alert-circle-outline' : 'check-circle-outline'}
-        color={danger ? palette.danger : palette.success}
+        color={danger ? colors.danger : colors.success}
         size={18}
       />
       <Text style={[styles.messageText, danger && styles.messageTextDanger]}>{text}</Text>
@@ -358,19 +365,22 @@ function StateScreen({
   onRetry?: () => void;
 }) {
   const router = useRouter();
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors, radius.lg, radius.xl);
   return (
     <GalleryShell title={title} showBack onBackPress={() => router.replace('/')}>
       <View style={styles.stateCard}>
         {loading ? (
-          <ActivityIndicator color={palette.gold} size="large" />
+          <ActivityIndicator color={colors.accent} size="large" />
         ) : (
-          <MaterialCommunityIcons name="monitor-off" color={palette.danger} size={38} />
+          <MaterialCommunityIcons name="monitor-off" color={colors.danger} size={38} />
         )}
         <Text style={styles.emptyTitle}>{title}</Text>
         <Text style={styles.emptyText}>{message}</Text>
         {onRetry ? (
           <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
-            <Text style={styles.retryText}>Повторить</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -378,40 +388,33 @@ function StateScreen({
   );
 }
 
-const addMenuItemTheme = {
-  colors: {
-    onSurface: palette.cream,
-    onSurfaceVariant: palette.cream,
-  },
-};
-
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, radiusLg: number, radiusXl: number) => StyleSheet.create({
   editor: { flex: 1, minHeight: 0 },
   plusButton: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: radiusXl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.gold,
+    backgroundColor: colors.accent,
   },
   addMenu: {
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: radiusLg,
     borderWidth: 1,
-    borderColor: palette.goldDeep,
-    backgroundColor: palette.panel,
-    boxShadow: '0 12px 24px rgba(0, 0, 0, 0.34)',
+    borderColor: colors.accentPressed,
+    backgroundColor: colors.surface,
+    boxShadow: colors.shadowSoft,
   },
   addMenuItem: {
     height: 52,
   },
   addMenuTitle: {
-    color: palette.cream,
+    color: colors.textPrimary,
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 15,
   },
-  itemMenu: { backgroundColor: palette.cream },
+  itemMenu: { backgroundColor: colors.surfaceElevated },
   list: { flex: 1 },
   listContent: { gap: 10, paddingTop: 16, paddingBottom: 18 },
   emptyListContent: { flexGrow: 1, justifyContent: 'center' },
@@ -421,20 +424,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 13,
     padding: 10,
-    borderRadius: 16,
+    borderRadius: radiusLg,
     borderWidth: 1,
-    borderColor: '#2F323A',
-    backgroundColor: palette.panel,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   playlistRowActive: {
-    borderColor: palette.gold,
-    backgroundColor: palette.panelRaised,
-    boxShadow: '0 14px 30px rgba(0, 0, 0, 0.34)',
+    borderColor: colors.accent,
+    backgroundColor: colors.surfaceElevated,
+    boxShadow: colors.shadowSoft,
   },
   thumbnail: { width: 112, height: 70, borderRadius: 11 },
   itemCopy: { minWidth: 0, flex: 1, gap: 5 },
-  itemTitle: { color: palette.cream, fontFamily: brandFonts.bodyEmphasis, fontSize: 15 },
-  itemMeta: { color: palette.muted, fontFamily: brandFonts.body, fontSize: 12 },
+  itemTitle: { color: colors.textPrimary, fontFamily: brandFonts.bodyEmphasis, fontSize: 15 },
+  itemMeta: { color: colors.textMuted, fontFamily: brandFonts.body, fontSize: 12 },
   rowAction: {
     width: 40,
     height: 40,
@@ -445,17 +448,17 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#2A2D34',
+    borderTopColor: colors.border,
   },
   saveButton: {
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
-    backgroundColor: palette.gold,
+    backgroundColor: colors.accent,
   },
   saveButtonDisabled: { opacity: 0.36 },
-  saveText: { color: palette.ink, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
+  saveText: { color: colors.onAccent, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
   messageBanner: {
     marginTop: 12,
     flexDirection: 'row',
@@ -464,11 +467,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: 'rgba(105, 227, 69, 0.1)',
+    backgroundColor: colors.successMuted,
   },
-  messageBannerDanger: { backgroundColor: 'rgba(255, 56, 71, 0.12)' },
-  messageText: { flex: 1, color: palette.success, fontFamily: brandFonts.body, fontSize: 12 },
-  messageTextDanger: { color: palette.danger },
+  messageBannerDanger: { backgroundColor: colors.dangerMuted },
+  messageText: { flex: 1, color: colors.success, fontFamily: brandFonts.body, fontSize: 12 },
+  messageTextDanger: { color: colors.danger },
   progressBanner: {
     marginTop: 12,
     flexDirection: 'row',
@@ -477,14 +480,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: palette.panelRaised,
+    backgroundColor: colors.surfaceElevated,
   },
-  progressText: { color: palette.cream, fontFamily: brandFonts.body, fontSize: 12 },
+  progressText: { color: colors.textPrimary, fontFamily: brandFonts.body, fontSize: 12 },
   emptyState: { alignItems: 'center', gap: 8, padding: 28 },
-  emptyTitle: { color: palette.cream, fontFamily: brandFonts.bodyEmphasis, fontSize: 18 },
+  emptyTitle: { color: colors.textPrimary, fontFamily: brandFonts.bodyEmphasis, fontSize: 18 },
   emptyText: {
     maxWidth: 420,
-    color: palette.muted,
+    color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 13,
     textAlign: 'center',
@@ -494,12 +497,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    borderRadius: 20,
+    borderRadius: radiusLg,
     borderWidth: 1,
-    borderColor: '#2A2D34',
-    backgroundColor: palette.panel,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  retryButton: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: palette.gold },
-  retryText: { color: palette.ink, fontFamily: brandFonts.bodyEmphasis, fontSize: 13 },
+  retryButton: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: radiusXl, backgroundColor: colors.accent },
+  retryText: { color: colors.onAccent, fontFamily: brandFonts.bodyEmphasis, fontSize: 13 },
   pressed: { opacity: 0.7 },
 });

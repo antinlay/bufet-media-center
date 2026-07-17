@@ -14,7 +14,9 @@ import { MediaThumbnail } from '../../../features/screen-playlist/MediaThumbnail
 import { formatDuration, type LibraryItemViewModel, type PlaylistMediaType } from '../../../features/screen-playlist/model';
 import { useProtectedRoute } from '../../../hooks/useProtectedRoute';
 import { MAX_MEDIA_PICK_COUNT } from '../../../lib/upload';
-import { brandFonts, palette } from '../../../theme';
+import { useAppTheme } from '../../../providers/AppThemeProvider';
+import { useI18n } from '../../../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../../../theme';
 
 type ScreenParams = { id?: string };
 type Filter = 'all' | PlaylistMediaType;
@@ -32,15 +34,18 @@ export default function PlaylistLibraryScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { colors, radius } = useAppTheme();
+  const { language, t } = useI18n();
+  const styles = createStyles(colors, radius.lg, radius.pill);
   const columns = width >= 1100 ? 5 : width >= 760 ? 4 : width >= 500 ? 3 : 2;
 
   const items = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase('ru');
+    const query = search.trim().toLocaleLowerCase(language);
     return (libraryQuery.data ?? []).filter((item) => (
       (filter === 'all' || item.type === filter) &&
-      (!query || item.title.toLocaleLowerCase('ru').includes(query))
+      (!query || item.title.toLocaleLowerCase(language).includes(query))
     ));
-  }, [filter, libraryQuery.data, search]);
+  }, [filter, language, libraryQuery.data, search]);
 
   const selectedItems = useMemo(() => {
     const byId = new Map((libraryQuery.data ?? []).map((item) => [item.id, item]));
@@ -55,7 +60,7 @@ export default function PlaylistLibraryScreen() {
     setSelectedIds((current) => {
       if (current.includes(item.id)) return current.filter((id) => id !== item.id);
       if (current.length >= MAX_MEDIA_PICK_COUNT) {
-        setError(`Можно выбрать не больше ${MAX_MEDIA_PICK_COUNT} файлов`);
+        setError(t('mediaLibrary.maxSelection', { max: MAX_MEDIA_PICK_COUNT }));
         return current;
       }
       return [...current, item.id];
@@ -67,24 +72,22 @@ export default function PlaylistLibraryScreen() {
     setError(null);
     addMutation.mutate(selectedItems, {
       onSuccess: () => router.back(),
-      onError: (mutationError) => {
-        setError(mutationError instanceof Error ? mutationError.message : 'Не удалось добавить медиа');
-      },
+      onError: () => setError(t('mediaLibrary.addError')),
     });
   };
 
   const subtitle = editorQuery.data
     ? `${editorQuery.data.organizationName} · ${editorQuery.data.screenName}`
-    : 'Выбор медиа';
+    : t('mediaLibrary.selectSubtitle');
 
   return (
-    <GalleryShell title="Библиотека" subtitle={subtitle} showBack scrollable={false}>
+    <GalleryShell title={t('mediaLibrary.title')} subtitle={subtitle} showBack scrollable={false}>
       <View style={styles.page}>
         <View style={styles.searchFrame}>
-          <MaterialCommunityIcons name="magnify" color={palette.muted} size={22} />
+          <MaterialCommunityIcons name="magnify" color={colors.textMuted} size={22} />
           <TextInput
-            placeholder="Найти медиа"
-            placeholderTextColor={palette.muted}
+            placeholder={t('mediaLibrary.search')}
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
             style={styles.searchInput}
@@ -92,24 +95,24 @@ export default function PlaylistLibraryScreen() {
         </View>
 
         <View style={styles.filters}>
-          <FilterChip active={filter === 'all'} label="Все" onPress={() => setFilter('all')} />
-          <FilterChip active={filter === 'Graphic'} label="Изображения" onPress={() => setFilter('Graphic')} />
-          <FilterChip active={filter === 'Video'} label="Видео" onPress={() => setFilter('Video')} />
+          <FilterChip active={filter === 'all'} label={t('mediaLibrary.all')} onPress={() => setFilter('all')} />
+          <FilterChip active={filter === 'Graphic'} label={t('mediaLibrary.images')} onPress={() => setFilter('Graphic')} />
+          <FilterChip active={filter === 'Video'} label={t('mediaLibrary.video')} onPress={() => setFilter('Video')} />
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {libraryQuery.isLoading ? (
           <View style={styles.state}>
-            <ActivityIndicator color={palette.gold} size="large" />
-            <Text style={styles.stateText}>Загружаем библиотеку…</Text>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.stateText}>{t('mediaLibrary.loading')}</Text>
           </View>
         ) : libraryQuery.isError ? (
           <View style={styles.state}>
-            <MaterialCommunityIcons name="wifi-alert" color={palette.danger} size={36} />
-            <Text style={styles.stateText}>Не удалось загрузить библиотеку.</Text>
+            <MaterialCommunityIcons name="wifi-alert" color={colors.danger} size={36} />
+            <Text style={styles.stateText}>{t('mediaLibrary.loadError')}</Text>
             <Pressable onPress={() => libraryQuery.refetch()} style={styles.retryButton}>
-              <Text style={styles.retryText}>Повторить</Text>
+              <Text style={styles.retryText}>{t('common.retry')}</Text>
             </Pressable>
           </View>
         ) : (
@@ -126,8 +129,8 @@ export default function PlaylistLibraryScreen() {
             windowSize={7}
             ListEmptyComponent={
               <View style={styles.state}>
-                <MaterialCommunityIcons name="image-search-outline" color={palette.gold} size={38} />
-                <Text style={styles.stateText}>Ничего не найдено.</Text>
+                <MaterialCommunityIcons name="image-search-outline" color={colors.accent} size={38} />
+                <Text style={styles.stateText}>{t('mediaLibrary.empty')}</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -147,12 +150,12 @@ export default function PlaylistLibraryScreen() {
                   <MediaThumbnail uri={item.thumbnailUrl} type={item.type} style={styles.mediaImage} />
                   {selected ? (
                     <View style={styles.checkBadge}>
-                      <MaterialCommunityIcons name="check" color={palette.ink} size={17} />
+                      <MaterialCommunityIcons name="check" color={colors.onAccent} size={17} />
                     </View>
                   ) : null}
                   <Text style={styles.mediaTitle} numberOfLines={1}>{item.title}</Text>
                   <Text style={styles.mediaMeta}>
-                    {item.type === 'Video' ? 'Видео' : 'Изображение'} · {formatDuration(item.duration)}
+                    {t(item.type === 'Video' ? 'playlist.mediaVideo' : 'playlist.mediaImage')} · {formatDuration(item.duration) ?? t('playlist.durationAuto')}
                   </Text>
                 </Pressable>
               );
@@ -161,7 +164,7 @@ export default function PlaylistLibraryScreen() {
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.selectionText}>Выбрано: {selectedIds.length} / {MAX_MEDIA_PICK_COUNT}</Text>
+          <Text style={styles.selectionText}>{t('mediaLibrary.selectedCount', { selected: selectedIds.length, max: MAX_MEDIA_PICK_COUNT })}</Text>
           <Pressable
             accessibilityRole="button"
             disabled={!selectedItems.length || addMutation.isPending}
@@ -173,9 +176,9 @@ export default function PlaylistLibraryScreen() {
             ]}
           >
             {addMutation.isPending ? (
-              <ActivityIndicator color={palette.ink} size="small" />
+              <ActivityIndicator color={colors.onAccent} size="small" />
             ) : (
-              <Text style={styles.addText}>Добавить выбранное</Text>
+              <Text style={styles.addText}>{t('mediaLibrary.addSelected')}</Text>
             )}
           </Pressable>
         </View>
@@ -185,6 +188,8 @@ export default function PlaylistLibraryScreen() {
 }
 
 function FilterChip({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+  const { colors, radius } = useAppTheme();
+  const styles = createStyles(colors, radius.lg, radius.pill);
   return (
     <Pressable
       accessibilityRole="button"
@@ -197,7 +202,7 @@ function FilterChip({ active, label, onPress }: { active: boolean; label: string
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors, radiusLg: number, radiusPill: number) => StyleSheet.create({
   page: { flex: 1, minHeight: 0, paddingTop: 14 },
   searchFrame: {
     minHeight: 46,
@@ -207,22 +212,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#3B3E46',
-    backgroundColor: palette.panelRaised,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceElevated,
   },
-  searchInput: { minWidth: 0, flex: 1, color: palette.cream, fontFamily: brandFonts.body, fontSize: 14 },
+  searchInput: { minWidth: 0, flex: 1, color: colors.textPrimary, fontFamily: brandFonts.body, fontSize: 14 },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 12 },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 18,
+    borderRadius: radiusPill,
     borderWidth: 1,
-    borderColor: '#3B3E46',
-    backgroundColor: palette.panel,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
   },
-  filterChipActive: { borderColor: palette.gold, backgroundColor: 'rgba(242, 160, 24, 0.14)' },
-  filterText: { color: palette.muted, fontFamily: brandFonts.bodyEmphasis, fontSize: 12 },
-  filterTextActive: { color: palette.gold },
+  filterChipActive: { borderColor: colors.accent, backgroundColor: colors.accentMuted },
+  filterText: { color: colors.textMuted, fontFamily: brandFonts.bodyEmphasis, fontSize: 12 },
+  filterTextActive: { color: colors.accent },
   grid: { gap: 12, paddingBottom: 18 },
   emptyGrid: { flexGrow: 1 },
   gridRow: { gap: 12 },
@@ -231,12 +236,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 6,
     padding: 8,
-    borderRadius: 14,
+    borderRadius: radiusLg,
     borderWidth: 1,
-    borderColor: '#2F323A',
-    backgroundColor: palette.panel,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  mediaCardSelected: { borderColor: palette.gold, backgroundColor: palette.panelRaised },
+  mediaCardSelected: { borderColor: colors.accent, backgroundColor: colors.surfaceElevated },
   mediaImage: { width: '100%', aspectRatio: 4 / 3, borderRadius: 10 },
   checkBadge: {
     position: 'absolute',
@@ -247,10 +252,10 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.gold,
+    backgroundColor: colors.accent,
   },
-  mediaTitle: { color: palette.cream, fontFamily: brandFonts.bodyEmphasis, fontSize: 13 },
-  mediaMeta: { color: palette.muted, fontFamily: brandFonts.body, fontSize: 10 },
+  mediaTitle: { color: colors.textPrimary, fontFamily: brandFonts.bodyEmphasis, fontSize: 13 },
+  mediaMeta: { color: colors.textMuted, fontFamily: brandFonts.body, fontSize: 10 },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -258,24 +263,24 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingTop: 13,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#2A2D34',
+    borderTopColor: colors.border,
   },
-  selectionText: { color: palette.muted, fontFamily: brandFonts.body, fontSize: 12 },
+  selectionText: { color: colors.textMuted, fontFamily: brandFonts.body, fontSize: 12 },
   addButton: {
     minWidth: 210,
     minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
-    borderRadius: 23,
-    backgroundColor: palette.gold,
+    borderRadius: radiusPill,
+    backgroundColor: colors.accent,
   },
   addButtonDisabled: { opacity: 0.36 },
-  addText: { color: palette.ink, fontFamily: brandFonts.bodyEmphasis, fontSize: 13 },
+  addText: { color: colors.onAccent, fontFamily: brandFonts.bodyEmphasis, fontSize: 13 },
   state: { flex: 1, minHeight: 260, alignItems: 'center', justifyContent: 'center', gap: 9 },
-  stateText: { color: palette.muted, fontFamily: brandFonts.body, fontSize: 13 },
-  retryButton: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 18, backgroundColor: palette.gold },
-  retryText: { color: palette.ink, fontFamily: brandFonts.bodyEmphasis, fontSize: 12 },
-  errorText: { color: palette.danger, fontFamily: brandFonts.body, fontSize: 12, paddingBottom: 8 },
+  stateText: { color: colors.textMuted, fontFamily: brandFonts.body, fontSize: 13 },
+  retryButton: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: radiusPill, backgroundColor: colors.accent },
+  retryText: { color: colors.onAccent, fontFamily: brandFonts.bodyEmphasis, fontSize: 12 },
+  errorText: { color: colors.danger, fontFamily: brandFonts.body, fontSize: 12, paddingBottom: 8 },
   pressed: { opacity: 0.72 },
 });

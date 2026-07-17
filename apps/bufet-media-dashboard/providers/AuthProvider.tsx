@@ -7,7 +7,7 @@ interface AuthContextValue {
   token: string | null;
   user: ConcertoUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, remember?: boolean) => Promise<void>;
   register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -36,11 +36,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, remember = true) => {
     const data = await apiClient.login(email, password);
     setToken(data.access_token);
     setUser(data.user);
-    await persistAuth(data);
+    if (remember) await persistAuth(data);
+    else await clearAuth();
   };
 
   const register = async (firstName: string, lastName: string, email: string, password: string) => {

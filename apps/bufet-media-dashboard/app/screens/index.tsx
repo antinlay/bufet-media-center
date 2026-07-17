@@ -10,7 +10,9 @@ import { EmptyState } from '../../components/EmptyState';
 import { Section } from '../../components/Section';
 import { apiClient } from '../../lib/api';
 import { buildGroupTree, flattenGroupTree } from '../../lib/groupTree';
-import { brandFonts, palette } from '../../theme';
+import { useAppTheme } from '../../providers/AppThemeProvider';
+import { useI18n } from '../../providers/I18nProvider';
+import { brandFonts, type AppColors } from '../../theme';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 
 export default function ScreensScreen() {
@@ -24,12 +26,15 @@ export default function ScreensScreen() {
 
   const [name, setName] = useState('');
   const [filterGroupId, setFilterGroupId] = useState<number | 'all' | null>(null);
+  const { colors } = useAppTheme();
+  const { t } = useI18n();
+  const styles = createStyles(colors);
 
   const createMutation = useMutation({
     mutationFn: () => {
       const groupId = filterGroupId === 'all' ? null : filterGroupId ?? flatGroups[0]?.group.id ?? null;
       if (!groupId || !name) {
-        throw new Error('Заполните имя и выберите организацию в фильтре');
+        throw new Error(t('screens.createValidation'));
       }
       return apiClient.createScreen({ name, group_id: groupId });
     },
@@ -38,8 +43,8 @@ export default function ScreensScreen() {
       setName('');
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Не удалось создать экран';
-      Alert.alert('Ошибка', message);
+      const message = error instanceof Error && error.message === t('screens.createValidation') ? error.message : t('screens.createError');
+      Alert.alert(t('common.error'), message);
     },
   });
 
@@ -53,8 +58,8 @@ export default function ScreensScreen() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiClient.deleteScreen(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['screens'] }),
-    onError: (error: Error) => {
-      Alert.alert('Ошибка', error.message || 'Не удалось удалить экран');
+    onError: () => {
+      Alert.alert(t('common.error'), t('screens.deleteError'));
     },
   });
 
@@ -86,39 +91,39 @@ export default function ScreensScreen() {
 
   return (
     <AppShell
-      title="Экраны"
-      subtitle="Экран = точка показа. Назначайте организации и отслеживайте онлайн‑статусы."
+      title={t('screens.title')}
+      subtitle={t('screens.subtitle')}
       actions={
         <View style={styles.headerActions}>
           <Button mode="outlined" onPress={() => router.push('/scan')}>
-            Сканировать QR
+            {t('dashboard.scanQr')}
           </Button>
           <Button mode="contained" onPress={() => queryClient.invalidateQueries({ queryKey: ['screens'] })}>
-            Обновить
+            {t('common.refresh')}
           </Button>
         </View>
       }
     >
       <BrandCard>
-        <Text style={styles.cardTitle}>Создать экран</Text>
+        <Text style={styles.cardTitle}>{t('screens.createTitle')}</Text>
         <TextInput
-          label="Название"
+          label={t('screens.name')}
           value={name}
           onChangeText={setName}
           style={styles.input}
         />
         <Button mode="contained" onPress={() => createMutation.mutate()} loading={createMutation.isPending}>
-          Создать экран
+          {t('screens.createTitle')}
         </Button>
       </BrandCard>
 
       <BrandCard>
-        <Text style={styles.cardTitle}>Фильтр по организациям</Text>
+        <Text style={styles.cardTitle}>{t('screens.filterTitle')}</Text>
         <RadioButton.Group
           onValueChange={(value) => setFilterGroupId(value === 'all' ? 'all' : Number(value))}
           value={selectedFilterGroupId ? String(selectedFilterGroupId) : 'all'}
         >
-          <RadioButton.Item label="Все" value="all" labelStyle={styles.radioLabel} />
+          <RadioButton.Item label={t('screens.filterAll')} value="all" labelStyle={styles.radioLabel} />
           {flatGroups.map(({ group, depth }) => (
             <RadioButton.Item
               key={group.id}
@@ -130,9 +135,9 @@ export default function ScreensScreen() {
         </RadioButton.Group>
       </BrandCard>
 
-      <Section title="Список экранов" subtitle="Подключенные и ожидающие привязку устройства.">
+      <Section title={t('screens.listTitle')} subtitle={t('screens.listSubtitle')}>
         {filteredScreens.length === 0 ? (
-          <EmptyState title="Экранов нет" subtitle="Создайте первый экран и привяжите устройство через QR." />
+          <EmptyState title={t('screens.emptyTitle')} subtitle={t('screens.emptySubtitle')} />
         ) : (
           filteredScreens.map((screen) => (
             <Pressable key={screen.id} onPress={() => router.push(`/screens/${screen.id}`)}>
@@ -140,23 +145,23 @@ export default function ScreensScreen() {
                 <View style={screenRowStyle}>
                   <View>
                     <Text style={styles.screenName}>{screen.name}</Text>
-                    <Text style={styles.screenMeta}>Организация: {screen.group?.name ?? screen.groupId}</Text>
+                    <Text style={styles.screenMeta}>{t('screens.organization', { name: screen.group?.name ?? screen.groupId })}</Text>
                   </View>
                   <View style={screenActionsStyle}>
-                    <View style={statusPillStyle(screen.online)}>
-                      <Text style={styles.statusText}>{screen.online ? 'ONLINE' : 'OFFLINE'}</Text>
+                    <View style={statusPillStyle(screen.online, colors)}>
+                      <Text style={styles.statusText}>{t(screen.online ? 'dashboard.online' : 'dashboard.offlineLabel')}</Text>
                     </View>
                     <Button
                       mode="text"
                       onPress={() => deleteMutation.mutate(screen.id)}
                       loading={deleteMutation.isPending}
                     >
-                      Удалить
+                      {t('common.delete')}
                     </Button>
                   </View>
                 </View>
-                <Text style={styles.screenMeta}>Последний сигнал: {screen.lastSeenAt ?? 'Нет данных'}</Text>
-                <Text style={styles.screenMeta} selectable>Device ID: {screen.device?.deviceId ?? 'Не привязан'}</Text>
+                <Text style={styles.screenMeta}>{t('screens.lastSeen', { value: screen.lastSeenAt ?? t('common.noData') })}</Text>
+                <Text style={styles.screenMeta} selectable>{t('screens.deviceId', { value: screen.device?.deviceId ?? t('screens.notPaired') })}</Text>
               </BrandCard>
             </Pressable>
           ))
@@ -166,7 +171,7 @@ export default function ScreensScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -175,11 +180,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontFamily: brandFonts.heading,
     fontSize: 20,
-    color: palette.charcoal,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: colors.inputBackground,
     marginBottom: 12,
   },
   selectorRow: {
@@ -194,7 +199,7 @@ const styles = StyleSheet.create({
   },
   selectorTitle: {
     fontFamily: brandFonts.bodyEmphasis,
-    color: palette.slate,
+    color: colors.textSecondary,
     marginBottom: 6,
   },
   radioLabel: {
@@ -204,25 +209,25 @@ const styles = StyleSheet.create({
   screenName: {
     fontFamily: brandFonts.heading,
     fontSize: 18,
-    color: palette.charcoal,
+    color: colors.textPrimary,
   },
   screenMeta: {
     fontFamily: brandFonts.body,
-    color: palette.slate,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   statusText: {
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 12,
-    color: palette.charcoal,
+    color: colors.textPrimary,
   },
 });
 
-const statusPillStyle = (online?: boolean) => ({
+const statusPillStyle = (online: boolean | undefined, colors: AppColors) => ({
   paddingHorizontal: 12,
   paddingVertical: 6,
   borderRadius: 16,
-  backgroundColor: online ? '#E8F4E8' : '#F3E3DE',
+  backgroundColor: online ? colors.successMuted : colors.dangerMuted,
   borderWidth: 1,
-  borderColor: online ? '#B9D7B9' : '#E0B4A6',
+  borderColor: online ? colors.success : colors.danger,
 });

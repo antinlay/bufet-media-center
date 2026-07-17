@@ -20,7 +20,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Нужен доступ к камере для сканирования QR-кодов.",
+          "cameraPermission": "Нужен доступ к камере для QR-кодов. Camera access is required to scan QR codes.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -39,7 +39,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0B0B0D"
       }
     },
     "extra": {

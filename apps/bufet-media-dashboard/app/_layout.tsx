@@ -4,11 +4,22 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../providers/AuthProvider';
-import { lightTheme } from '../theme';
+import { AppThemeProvider, useAppTheme } from '../providers/AppThemeProvider';
+import { I18nProvider } from '../providers/I18nProvider';
 import { useFonts } from 'expo-font';
+import { appThemes } from '../theme';
+
+function AppNavigator() {
+  const { colors, scheme } = useAppTheme();
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+    </>
+  );
+}
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({
@@ -26,19 +37,20 @@ export default function RootLayout() {
   });
 
   if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: '#0B0B0D' }} />;
+    return <View style={{ flex: 1, backgroundColor: appThemes.dark.colors.background }} />;
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <PaperProvider theme={lightTheme}>
-              <Stack screenOptions={{ headerShown: false }} />
-              <StatusBar style="light" />
-            </PaperProvider>
-          </AuthProvider>
+          <AppThemeProvider>
+            <I18nProvider>
+              <AuthProvider>
+                <AppNavigator />
+              </AuthProvider>
+            </I18nProvider>
+          </AppThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
