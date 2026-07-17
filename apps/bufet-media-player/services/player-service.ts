@@ -9,6 +9,7 @@ import {
   PairingStatusResponse,
 } from '@bufet/shared';
 import { ApiBaseUrl } from '@/services/api-base-url';
+import { subscribeToPlaylistChanges } from '@/services/supabase-realtime';
 
 export const isAbsoluteUrl = (url: string) => /^https?:\/\//i.test(url);
 
@@ -312,8 +313,12 @@ export class PlayerService {
     return this.fetchJson<DeviceConfigResponse>(
       baseUrl,
       'GET',
-      `/api/player/config?deviceId=${encodeURIComponent(deviceId)}`,
+      `/api/player/manifest?deviceId=${encodeURIComponent(deviceId)}`,
       { signal },
     );
+  }
+
+  static subscribeToPlaylistChanges(screenId: string | number, onChange: () => void) {
+    return subscribeToPlaylistChanges(screenId, onChange);
   }
 }

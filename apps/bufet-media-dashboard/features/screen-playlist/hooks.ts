@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { PickedFile } from '../../lib/upload';
 import { mediaPointsQueryKey } from '../media-points/hooks';
+import { broadcastPlaylistChanged } from '../../lib/supabase-realtime';
 import type { LibraryItemViewModel, PlaylistItemViewModel } from './model';
 import {
   addLibraryItems,
@@ -37,7 +38,9 @@ function usePlaylistInvalidation(screenId: number) {
   return () => Promise.all([
     queryClient.invalidateQueries({ queryKey: playlistEditorKey(screenId) }),
     queryClient.invalidateQueries({ queryKey: mediaPointsQueryKey }),
-  ]);
+  ]).then(() => {
+    void broadcastPlaylistChanged(screenId);
+  });
 }
 
 export function useUploadPlaylistFiles(screenId: number) {

@@ -79,7 +79,9 @@ export default function PlayerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [apiBaseUrl, setApiBaseUrl] = useState<string | null>(PlayerService.getCachedApiBaseUrl());
+  const [manifestScreenId, setManifestScreenId] = useState<string | number | null>(null);
   const playlistAbortRef = useRef<AbortController | null>(null);
+  const realtimeCleanupRef = useRef<(() => Promise<void>) | null>(null);
 
   const loadPlaylist = useCallback(async () => {
     if (!deviceId) return;
@@ -102,6 +104,10 @@ export default function PlayerScreen() {
         }));
       setPlaylist(sortedItems);
       setCurrentIndex(0);
+      const configuredScreenId = config.settings?.screen_id;
+      setManifestScreenId(
+        typeof configuredScreenId === 'string' || typeof configuredScreenId === 'number' ? configuredScreenId : null,
+      );
       setLoading(false);
       setError(null);
       await PlayerService.saveCachedPlaylist({
@@ -119,6 +125,7 @@ export default function PlayerScreen() {
           const cachedItems = await PlayerService.applyMediaCache(cached.items);
           setPlaylist(cachedItems);
           setCurrentIndex(0);
+          setManifestScreenId(null);
           setLoading(false);
           setError(null);
           return;
@@ -137,6 +144,29 @@ export default function PlayerScreen() {
   }, [deviceId]);
 
   useEffect(() => {
+    let active = true;
+    void (async () => {
+      await realtimeCleanupRef.current?.();
+      realtimeCleanupRef.current = null;
+      if (manifestScreenId === null) return;
+      const cleanup = await PlayerService.subscribeToPlaylistChanges(manifestScreenId, () => {
+        if (active) void loadPlaylist();
+      });
+      if (active) {
+        realtimeCleanupRef.current = cleanup;
+      } else {
+        await cleanup?.();
+      }
+    })();
+
+    return () => {
+      active = false;
+      void realtimeCleanupRef.current?.();
+      realtimeCleanupRef.current = null;
+    };
+  }, [loadPlaylist, manifestScreenId]);
+
+  useEffect(() => {
     const initialLoad = setTimeout(() => void loadPlaylist(), 0);
     const interval = setInterval(loadPlaylist, 60_000);
     return () => {
@@ -144,6 +174,8 @@ export default function PlayerScreen() {
       clearInterval(interval);
       playlistAbortRef.current?.abort();
       playlistAbortRef.current = null;
+      void realtimeCleanupRef.current?.();
+      realtimeCleanupRef.current = null;
     };
   }, [loadPlaylist]);
 

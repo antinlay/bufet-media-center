@@ -136,7 +136,7 @@ module Supabase
         feed.submissions.includes(:content).order(:position, :created_at).filter_map do |submission|
           content = submission.content
           next unless content.is_a?(Graphic) || content.is_a?(Video)
-          next unless content.active?
+          next unless Content.active.where(id: content.id).exists?
 
           media = Supabase::Sync::Content.call(content, organization_id: organization_id)
           next unless media
