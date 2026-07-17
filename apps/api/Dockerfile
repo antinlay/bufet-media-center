@@ -87,6 +87,7 @@ COPY --chown=rails:rails --from=build /rails /rails
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
 # Start server via Thruster by default, this can be overwritten at runtime.
-# Thruster listens on HTTP_PORT and proxies to Puma on TARGET_PORT.
+# Rails receives an explicit internal port so Render's public PORT cannot make
+# Puma listen on the same socket as Thruster.
 EXPOSE 10000
-CMD ["./bin/thrust", "./bin/rails", "server"]
+CMD ["/bin/sh", "-c", "exec ./bin/thrust ./bin/rails server -p \"${TARGET_PORT:-3000}\""]

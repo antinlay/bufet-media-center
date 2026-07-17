@@ -28,9 +28,9 @@
 threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
 threads threads_count, threads_count
 
-# Specifies the `port` that Puma will listen on to receive requests; default is 3000.
-# Thruster proxies the Render-facing HTTP_PORT to Puma's internal PORT.
-port ENV.fetch("PORT", 3000)
+# Puma listens on Thruster's internal target port. Render reserves `PORT` for
+# the public Thruster listener, so using it here would leave TARGET_PORT empty.
+port ENV.fetch("TARGET_PORT", ENV.fetch("PORT", 3000))
 
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart
