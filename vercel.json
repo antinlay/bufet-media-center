@@ -4,8 +4,8 @@
   "env": {
     "EXPO_PUBLIC_API_URL": "https://bufet-media-center-production.up.railway.app"
   },
-  "installCommand": "corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @bufet/shared build && pnpm --filter @bufet/dashboard build:web",
+  "installCommand": "npx --yes pnpm@9.12.0 install --frozen-lockfile",
+  "buildCommand": "npx --yes pnpm@9.12.0 --filter @bufet/shared build && npx --yes pnpm@9.12.0 --filter @bufet/dashboard build:web",
   "outputDirectory": "apps/bufet-media-dashboard/dist",
   "routes": [
     { "handle": "filesystem" },
