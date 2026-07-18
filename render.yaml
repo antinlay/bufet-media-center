@@ -40,7 +40,7 @@ services:
       - key: CONCERTO_DASHBOARD_URL
         value: https://bufet-media-center.vercel.app
       - key: CONCERTO_ALLOWED_ORIGINS
-        value: https://bufet-media-center.vercel.app
+        value: https://bufet-media-center.vercel.app,https://bufet-media-player.expo.app
       - key: PUBLIC_API_URL
         value: https://bufet-media-api.onrender.com
       - key: SUPABASE_URL

@@ -23,7 +23,7 @@ services:
       SECRET_KEY_BASE: local-only-secret-key-base-change-me
       DATABASE_URL: postgresql://bufet:bufet-local-password@postgres:5432/bufet_local
       CONCERTO_DASHBOARD_URL: http://localhost:8080
-      CONCERTO_ALLOWED_ORIGINS: http://localhost:8080,http://localhost:8081,http://127.0.0.1:8080,http://127.0.0.1:8081
+      CONCERTO_ALLOWED_ORIGINS: http://localhost:8080,http://localhost:8081,http://localhost:8082,http://127.0.0.1:8080,http://127.0.0.1:8081,http://127.0.0.1:8082
       DISABLE_SSL: "1"
       PORT: 3000
       SOLID_QUEUE_IN_PUMA: "true"
