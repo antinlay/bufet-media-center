@@ -58,7 +58,11 @@ export function useUploadPlaylistFiles(screenId: number) {
   return useMutation({
     mutationFn: ({ files, onProgress }: { files: PickedFile[]; onProgress?: (done: number, total: number) => void }) =>
       uploadPlaylistFiles(screenId, files, labels, onProgress),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void invalidate().catch((error) => {
+        console.warn('Playlist refresh failed after successful upload', error);
+      });
+    },
   });
 }
 

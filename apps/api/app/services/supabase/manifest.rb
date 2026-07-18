@@ -1,16 +1,18 @@
 module Supabase
   class Manifest
     class << self
-      def for_device(device_id)
+      def for_device(device_id, screen_id: nil)
         return nil unless Supabase::Client.configured?
 
+        screen_params = {
+          "select" => "*",
+          "player_device_id" => "eq.#{device_id}",
+          "limit" => "1"
+        }
+        screen_params["legacy_id"] = "eq.#{screen_id}" if screen_id.present?
         screen = Supabase::Client.get(
           "screens",
-          params: {
-            "select" => "*",
-            "player_device_id" => "eq.#{device_id}",
-            "limit" => "1"
-          }
+          params: screen_params
         ).first
         return nil unless screen
 

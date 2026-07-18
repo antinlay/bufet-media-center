@@ -37,6 +37,14 @@ function mergeServerItems(current: PlaylistItemViewModel[], server: PlaylistItem
   return normalizeOrder([...kept, ...added]);
 }
 
+function mergeUploadedItems(current: PlaylistItemViewModel[], uploaded: PlaylistItemViewModel[]) {
+  const uploadedById = new Map(uploaded.map((item) => [item.submissionId, item]));
+  const currentIds = new Set(current.map((item) => item.submissionId));
+  const updated = current.map((item) => uploadedById.get(item.submissionId) ?? item);
+  const added = uploaded.filter((item) => !currentIds.has(item.submissionId));
+  return normalizeOrder([...updated, ...added]);
+}
+
 export default function PlaylistEditorScreen() {
   useProtectedRoute();
   const router = useRouter();
@@ -108,8 +116,7 @@ export default function PlaylistEditorScreen() {
         },
         {
           onSuccess: (added) => {
-            setItems((current) => normalizeOrder([...current, ...added]));
-            setDirty(true);
+            setItems((current) => mergeUploadedItems(current, added));
           },
           onError: (mutationError) => {
             setError(t('playlist.uploadFilesError'));

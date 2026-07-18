@@ -110,6 +110,7 @@ module Supabase
         return unless Supabase::Client.configured?
 
         organization = upsert_organization(@screen.group)
+        detach_reassigned_device!
         screen = Supabase::Client.upsert("screens", [ screen_record(organization["id"]) ], conflict: "legacy_id").first
         playlist = Supabase::Client.upsert(
           "playlists",
@@ -124,6 +125,19 @@ module Supabase
       end
 
       private
+
+      def detach_reassigned_device!
+        device_id = @screen.player_device&.device_id
+        return if device_id.blank?
+
+        Supabase::Client.patch(
+          "screens",
+          { player_device_id: nil, updated_at: Time.current.iso8601 },
+          params: {
+            "player_device_id" => "eq.#{device_id}"
+          }
+        )
+      end
 
       def upsert_organization(group)
         Supabase::Client.upsert(

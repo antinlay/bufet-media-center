@@ -45,6 +45,6 @@ class Api::Player::ConfigController < ActionController::API
   end
 
   def config_for(device)
-    Supabase::Manifest.for_device(device.device_id) || PlayerConfigBuilder.new(device.screen).build
+    Supabase::Manifest.for_device(device.device_id, screen_id: device.screen_id) || PlayerConfigBuilder.new(device.screen).build
   end
 end
