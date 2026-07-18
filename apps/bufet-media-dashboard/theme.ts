@@ -29,6 +29,7 @@ export type AppColors = {
   dangerMuted: string;
   successMuted: string;
   imageOverlay: string;
+  onImage: string;
   shadowSoft: string;
   shadowStrong: string;
   focusRing: string;
@@ -90,6 +91,7 @@ const darkColors: AppColors = {
   dangerMuted: 'rgba(255, 86, 100, 0.14)',
   successMuted: 'rgba(105, 227, 69, 0.12)',
   imageOverlay: 'rgba(7, 8, 10, 0.82)',
+  onImage: '#F7F2E8',
   shadowSoft: '0 10px 26px rgba(0, 0, 0, 0.24)',
   shadowStrong: '0 24px 64px rgba(0, 0, 0, 0.42)',
   focusRing: '0 0 0 3px rgba(242, 160, 24, 0.24)',
@@ -121,6 +123,7 @@ const lightColors: AppColors = {
   dangerMuted: 'rgba(201, 47, 62, 0.1)',
   successMuted: 'rgba(51, 139, 38, 0.1)',
   imageOverlay: 'rgba(26, 21, 18, 0.7)',
+  onImage: '#FFFFFF',
   shadowSoft: '0 10px 26px rgba(67, 43, 20, 0.12)',
   shadowStrong: '0 24px 64px rgba(67, 43, 20, 0.2)',
   focusRing: '0 0 0 3px rgba(217, 133, 9, 0.22)',

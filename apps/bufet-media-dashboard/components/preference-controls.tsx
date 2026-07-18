@@ -4,27 +4,29 @@ import { useAppTheme } from '@/providers/AppThemeProvider';
 import { useI18n } from '@/providers/I18nProvider';
 import type { AppColors } from '@/theme';
 
-export function PreferenceControls({ compact = false }: { compact?: boolean }) {
+export function PreferenceControls({ compact = false, showTheme = true }: { compact?: boolean; showTheme?: boolean }) {
   const { colors, radius, scheme, toggleScheme } = useAppTheme();
   const { language, setLanguage, t } = useI18n();
   const styles = createStyles(colors, radius.pill);
   const themeLabel = t(scheme === 'dark' ? 'theme.light' : 'theme.dark');
 
   return (
-    <View style={styles.row}>
-      <Pressable
-        accessibilityLabel={themeLabel}
-        accessibilityRole="button"
-        onPress={toggleScheme}
-        style={({ pressed }) => [styles.themeButton, pressed && styles.pressed]}
-      >
-        <MaterialCommunityIcons
-          name={scheme === 'dark' ? 'weather-sunny' : 'weather-night'}
-          color={colors.textPrimary}
-          size={18}
-        />
-        {compact ? null : <Text style={styles.themeText}>{themeLabel}</Text>}
-      </Pressable>
+    <View style={[styles.row, compact && styles.compactRow]}>
+      {showTheme ? (
+        <Pressable
+          accessibilityLabel={themeLabel}
+          accessibilityRole="button"
+          onPress={toggleScheme}
+          style={({ pressed }) => [styles.themeButton, compact && styles.themeButtonCompact, pressed && styles.pressed]}
+        >
+          <MaterialCommunityIcons
+            name={scheme === 'dark' ? 'weather-sunny' : 'weather-night'}
+            color={colors.textPrimary}
+            size={18}
+          />
+          {compact ? null : <Text style={styles.themeText}>{themeLabel}</Text>}
+        </Pressable>
+      ) : null}
       <View accessibilityLabel={t('common.language')} style={styles.languageGroup}>
         {(['ru', 'en'] as const).map((item) => (
           <Pressable
@@ -34,6 +36,7 @@ export function PreferenceControls({ compact = false }: { compact?: boolean }) {
             onPress={() => setLanguage(item)}
             style={({ pressed }) => [
               styles.languageButton,
+              compact && styles.languageButtonCompact,
               language === item && styles.languageButtonActive,
               pressed && styles.pressed,
             ]}
@@ -49,7 +52,8 @@ export function PreferenceControls({ compact = false }: { compact?: boolean }) {
 }
 
 const createStyles = (colors: AppColors, pill: number) => StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: { maxWidth: '100%', minWidth: 0, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  compactRow: { gap: 8 },
   themeButton: {
     minHeight: 42,
     flexDirection: 'row',
@@ -63,6 +67,7 @@ const createStyles = (colors: AppColors, pill: number) => StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
   },
   themeText: { color: colors.textPrimary, fontFamily: 'Manrope-SemiBold', fontSize: 12 },
+  themeButtonCompact: { width: 42, paddingHorizontal: 0, gap: 0 },
   languageGroup: {
     flexDirection: 'row',
     padding: 3,
@@ -72,6 +77,7 @@ const createStyles = (colors: AppColors, pill: number) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   languageButton: { minWidth: 38, paddingHorizontal: 9, paddingVertical: 7, borderRadius: pill },
+  languageButtonCompact: { minWidth: 34, paddingHorizontal: 7 },
   languageButtonActive: { backgroundColor: colors.accent },
   languageText: { color: colors.textSecondary, fontFamily: 'Manrope-SemiBold', fontSize: 11 },
   languageTextActive: { color: colors.onAccent },

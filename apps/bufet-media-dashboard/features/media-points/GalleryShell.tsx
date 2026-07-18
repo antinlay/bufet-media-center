@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { IconButton, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { brandFonts, type AppColors } from '../../theme';
@@ -32,8 +32,10 @@ export function GalleryShell({
   onBackPress,
 }: GalleryShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
+  const isMobile = width < 600;
   const { colors, radius } = useAppTheme();
   const { t } = useI18n();
   const styles = createStyles(colors, radius.md);
@@ -54,8 +56,8 @@ export function GalleryShell({
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.page}>
         <View style={styles.toolbarFrame}>
-          <View style={styles.toolbar}>
-            <View style={styles.toolbarIdentity}>
+          <View style={[styles.toolbar, isMobile && styles.toolbarMobile, isMobile && showBack && styles.toolbarMobileSingleRow]}>
+            <View style={[styles.toolbarIdentity, isMobile && styles.toolbarIdentityMobile, isMobile && showBack && styles.toolbarIdentitySingleRow]}>
               {showBack ? (
                 <IconButton
                   icon="chevron-left"
@@ -69,14 +71,16 @@ export function GalleryShell({
                   <Text style={styles.brandMarkText}>{t('brand.name').slice(0, 1)}</Text>
                 </View>
               )}
-              <View style={styles.brandCopy}>
-                <Text style={styles.brandTitle}>{title ?? t('brand.name')}</Text>
-                {title ? null : <Text style={styles.brandSubtitle}>{t('brand.tagline')}</Text>}
-              </View>
+              {!(isMobile && showBack) ? (
+                <View style={styles.brandCopy}>
+                  <Text style={styles.brandTitle}>{title ?? t('brand.name')}</Text>
+                  {title ? null : <Text style={styles.brandSubtitle}>{t('brand.tagline')}</Text>}
+                </View>
+              ) : null}
             </View>
-            <View style={styles.toolbarActions}>
+            <View style={[styles.toolbarActions, isMobile && styles.toolbarActionsMobile, isMobile && showBack && styles.toolbarActionsSingleRow]}>
               {toolbarActions}
-              <PreferenceControls compact={width < 760} />
+              <PreferenceControls compact={width < 760} showTheme={!isMobile || pathname === '/'} />
             </View>
           </View>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -117,15 +121,18 @@ export function GalleryShell({
 const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.create({
   safeArea: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: colors.background,
   },
   page: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: colors.background,
   },
   toolbarFrame: {
     width: '100%',
     maxWidth: 1480,
+    minWidth: 0,
     alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 10,
@@ -135,21 +142,54 @@ const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.cre
   },
   toolbar: {
     minHeight: 58,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
   },
+  toolbarMobile: {
+    minHeight: 0,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
+  },
+  toolbarMobileSingleRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   toolbarIdentity: {
     minWidth: 0,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  toolbarIdentityMobile: {
+    width: '100%',
+    flex: 0,
+  },
+  toolbarIdentitySingleRow: {
+    width: 'auto',
+    flex: 1,
   },
   toolbarActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
+  },
+  toolbarActionsMobile: {
+    width: '100%',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+  },
+  toolbarActionsSingleRow: {
+    width: 'auto',
+    flexWrap: 'nowrap',
   },
   brandMark: {
     width: 38,
@@ -168,6 +208,7 @@ const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.cre
   },
   brandCopy: {
     minWidth: 0,
+    flexShrink: 1,
     gap: 1,
   },
   brandTitle: {
@@ -182,6 +223,7 @@ const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.cre
     letterSpacing: 2.2,
   },
   subtitle: {
+    maxWidth: '100%',
     color: colors.textMuted,
     fontFamily: brandFonts.body,
     fontSize: 13,
@@ -191,16 +233,19 @@ const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.cre
   scrollContent: {
     width: '100%',
     maxWidth: 1480,
+    minWidth: 0,
     alignSelf: 'center',
     paddingHorizontal: 20,
     paddingVertical: 26,
   },
   content: {
+    minWidth: 0,
     gap: 28,
   },
   fixedContent: {
     width: '100%',
     maxWidth: 1480,
+    minWidth: 0,
     flex: 1,
     alignSelf: 'center',
     paddingHorizontal: 20,

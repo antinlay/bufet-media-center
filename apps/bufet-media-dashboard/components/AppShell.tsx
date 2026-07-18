@@ -81,7 +81,7 @@ export function AppShell({
             <View style={styles.topNavHeader}>
               <Text style={styles.brandTitle}>{t('brand.name')}</Text>
               <View style={styles.topNavTools}>
-                <PreferenceControls compact />
+                <PreferenceControls compact showTheme={!isMobile || pathname === '/'} />
                 <IconButton accessibilityLabel={t('nav.logout')} icon="logout" onPress={logout} iconColor={colors.textPrimary} />
               </View>
             </View>
@@ -150,10 +150,10 @@ const createStyles = (colors: AppColors, radiusMd: number, radiusLg: number) => 
     alignItems: 'center',
   },
   logoutText: { color: colors.accent, fontSize: 12, letterSpacing: 1, fontFamily: brandFonts.bodyEmphasis },
-  main: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
+  main: { flex: 1, minWidth: 0, paddingHorizontal: 20, paddingTop: 16 },
   topNav: { marginBottom: 12, backgroundColor: colors.surface, borderRadius: radiusLg, padding: 12, borderWidth: 1, borderColor: colors.border },
-  topNavHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 12 },
-  topNavTools: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  topNavHeader: { minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 12, flexWrap: 'wrap' },
+  topNavTools: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
   topNavList: { gap: 8 },
   topNavItem: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.surfaceMuted },
   topNavItemActive: { backgroundColor: colors.accent },
@@ -166,5 +166,5 @@ const createStyles = (colors: AppColors, radiusMd: number, radiusLg: number) => 
   headerActionsMobile: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
   title: { fontFamily: brandFonts.heading, fontSize: 32, color: colors.textPrimary },
   subtitle: { color: colors.textSecondary, marginTop: 4, fontFamily: brandFonts.body },
-  content: { paddingBottom: 80, gap: 16 },
+  content: { minWidth: 0, paddingBottom: 80, gap: 16 },
 });
