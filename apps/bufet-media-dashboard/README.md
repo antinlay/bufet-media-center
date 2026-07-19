@@ -14,6 +14,15 @@ pnpm --filter @bufet/dashboard start -- --web  # dashboard (web)
 
 ```
 EXPO_PUBLIC_API_URL=http://localhost:3000
+EXPO_PUBLIC_SUPABASE_URL=https://illaavmcrawkjfnvnqfo.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+```
+
+Авторизация dashboard работает через Supabase Auth с email/password. Для production включите подтверждение email в Supabase Authentication и добавьте в Redirect URLs:
+
+```text
+https://bufet-media-center.vercel.app/reset-password
+bufetdash://reset-password
 ```
 
 Production (Render API):

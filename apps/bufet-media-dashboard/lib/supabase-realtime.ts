@@ -1,19 +1,4 @@
-import 'react-native-url-polyfill/auto';
-
-import { createClient } from '@supabase/supabase-js';
-
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-const supabase = url && publishableKey
-  ? createClient(url, publishableKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    })
-  : null;
+import { supabase } from './supabase';
 
 export async function broadcastPlaylistChanged(screenId: number, revision?: string | number) {
   if (!supabase) return;

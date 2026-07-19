@@ -38,8 +38,8 @@ export default function RegisterScreen() {
   const onSubmit = async (values: RegisterForm) => {
     setError(null);
     try {
-      await register(values.firstName.trim(), values.lastName.trim(), values.email.trim(), values.password);
-      router.replace('/');
+      const result = await register(values.firstName.trim(), values.lastName.trim(), values.email.trim(), values.password);
+      router.replace(result.requiresEmailConfirmation ? { pathname: '/login', params: { emailConfirmation: '1' } } : '/');
     } catch {
       setError(t('auth.register.error'));
     }

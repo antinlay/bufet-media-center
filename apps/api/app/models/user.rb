@@ -7,6 +7,7 @@ class User < ApplicationRecord
 
   validates :first_name, presence: true
   validates :last_name, presence: true
+  validates :supabase_uid, uniqueness: true, allow_nil: true
 
   has_many :contents, dependent: :destroy
   has_many :memberships, dependent: :destroy

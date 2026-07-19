@@ -35,8 +35,49 @@ class Api::V1::BaseController < ActionController::API
   end
 
   def user_from_token(token)
-    payload = decode_jwt(token)
-    User.find_by(id: payload["sub"])
+    if supabase_token?(token)
+      user_from_supabase_token(token)
+    else
+      payload = decode_jwt(token)
+      User.find_by(id: payload["sub"])
+    end
+  rescue Supabase::Auth::InvalidToken, ActiveRecord::RecordInvalid => error
+    raise JwtError, error.message
+  end
+
+  def supabase_token?(token)
+    header_segment = token.to_s.split(".").first
+    return false if header_segment.blank?
+
+    header = JSON.parse(Base64.urlsafe_decode64(header_segment))
+    header["alg"] == "ES256"
+  rescue ArgumentError, JSON::ParserError
+    false
+  end
+
+  def user_from_supabase_token(token)
+    payload = Supabase::Auth.verify!(token)
+    supabase_uid = payload.fetch("sub")
+    email = payload["email"].to_s.downcase.presence
+    raise JwtError, "Supabase token has no email" unless email
+
+    user = User.find_by(supabase_uid: supabase_uid) || User.where("LOWER(email) = ?", email).first
+    if user
+      if user.supabase_uid.present? && user.supabase_uid != supabase_uid
+        raise JwtError, "Supabase identity is already linked to another user"
+      end
+
+      user.update!(supabase_uid: supabase_uid) if user.supabase_uid.blank?
+      return user
+    end
+
+    metadata = payload["user_metadata"].is_a?(Hash) ? payload["user_metadata"] : {}
+    User.create!(
+      email: email,
+      supabase_uid: supabase_uid,
+      first_name: metadata["first_name"].presence || email.split("@").first,
+      last_name: metadata["last_name"].presence || "User"
+    )
   end
 
   def jwt_secret

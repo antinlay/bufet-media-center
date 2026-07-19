@@ -23,6 +23,25 @@ EXPO_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 ```
 
+## Dashboard authentication
+
+`apps/bufet-media-dashboard` uses Supabase Auth for email/password sign-in, registration, session refresh, password recovery, and sign-out. The Supabase access token is sent to the Rails API as a bearer token. Rails verifies the ES256 token against the project's JWKS endpoint and links the Supabase identity to `users.supabase_uid`; existing users are linked by a case-insensitive email match on their first authenticated request.
+
+The player remains unauthenticated because pairing and playback use the existing player contract.
+
+In Supabase Authentication settings, enable email confirmation and add these Redirect URLs:
+
+```text
+https://bufet-media-center.vercel.app/reset-password
+bufetdash://reset-password
+https://bufet-media-center.vercel.app/login
+bufetdash://login
+```
+
+For local web development, add the current localhost URL, for example `http://localhost:8081/reset-password`.
+
+The API must have `SUPABASE_URL` configured. The dashboard must have `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; never expose `SUPABASE_SERVICE_ROLE_KEY` to Expo or Vercel.
+
 ## Data migration
 
 The initial schema and private `media` bucket live in `supabase/migrations/`. The hosted project has been migrated and seeded from the local Rails database. Repeatable synchronization is available through:

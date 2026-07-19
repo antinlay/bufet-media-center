@@ -1,11 +1,11 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HelperText, TextInput } from 'react-native-paper';
 import { z } from 'zod';
-import { AuthButton, AuthCheckbox, AuthInput } from '@/components/auth-controls';
+import { AuthButton, AuthInput } from '@/components/auth-controls';
 import { AuthLayout } from '@/components/auth-layout';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import { useAppTheme } from '@/providers/AppThemeProvider';
@@ -17,12 +17,12 @@ type LoginForm = { email: string; password: string };
 export default function LoginScreen() {
   useProtectedRoute();
   const router = useRouter();
+  const { emailConfirmation } = useLocalSearchParams<{ emailConfirmation?: string }>();
   const { login } = useAuth();
   const { colors } = useAppTheme();
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const styles = createStyles(colors);
   const schema = useMemo(() => z.object({
     email: z.string().trim().email({ message: t('auth.login.emailRequired') }),
@@ -37,7 +37,7 @@ export default function LoginScreen() {
   const onSubmit = async (values: LoginForm) => {
     setError(null);
     try {
-      await login(values.email.trim(), values.password, rememberMe);
+      await login(values.email.trim(), values.password);
       router.replace('/');
     } catch (caught: unknown) {
       const message = caught instanceof Error ? caught.message : '';
@@ -96,11 +96,11 @@ export default function LoginScreen() {
       />
       <HelperText type="error" visible={Boolean(errors.password)}>{errors.password?.message}</HelperText>
       <View style={styles.options}>
-        <AuthCheckbox checked={rememberMe} label={t('auth.login.rememberMe')} onPress={() => setRememberMe((value) => !value)} />
         <Pressable accessibilityRole="link" onPress={() => router.push('/forgot-password')}>
           <Text style={styles.link}>{t('auth.login.forgotPassword')}</Text>
         </Pressable>
       </View>
+      {emailConfirmation === '1' ? <Text accessibilityRole="alert" style={styles.success}>{t('auth.register.confirmationSent')}</Text> : null}
       {error ? <Text accessibilityRole="alert" selectable style={styles.error}>{error}</Text> : null}
       <AuthButton disabled={!isValid} loading={isSubmitting} onPress={submit}>
         {t(isSubmitting ? 'auth.login.submitting' : 'auth.login.submit')}
@@ -115,6 +115,7 @@ const createStyles = (colors: ReturnType<typeof useAppTheme>['colors']) => Style
   options: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 },
   link: { color: colors.accent, fontFamily: 'Manrope-SemiBold', fontSize: 12 },
   error: { color: colors.danger, fontFamily: 'Manrope-Regular', fontSize: 12, lineHeight: 18 },
+  success: { color: colors.success, fontFamily: 'Manrope-Regular', fontSize: 12, lineHeight: 18 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 3 },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { color: colors.textMuted, fontFamily: 'Manrope-Regular', fontSize: 11 },
