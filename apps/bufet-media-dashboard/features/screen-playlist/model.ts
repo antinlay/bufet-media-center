@@ -12,6 +12,7 @@ export interface PlaylistItemViewModel {
   type: PlaylistMediaType;
   title: string;
   duration: number | null;
+  displayDurationSeconds: number | null;
   position: number;
   mediaUrl: string | null;
   thumbnailUrl: string | null;
@@ -31,6 +32,15 @@ export interface LibraryItemViewModel {
   duration: number | null;
   thumbnailUrl: string | null;
   mediaUrl: string | null;
+}
+
+export interface ScreenPlaylistCardViewModel {
+  screenId: number;
+  title: string;
+  organizationName: string;
+  itemCount: number;
+  totalDurationSeconds: number | null;
+  previews: Pick<PlaylistItemViewModel, 'key' | 'thumbnailUrl' | 'type'>[];
 }
 
 export interface UrlPreview {
@@ -60,6 +70,7 @@ export function mapPlaylistItem(item: ConcertoPlaylistItem, labels: PlaylistLabe
     type,
     title: item.name?.trim() || (type === 'Video' ? labels.video : labels.image),
     duration: item.duration ?? null,
+    displayDurationSeconds: type === 'Graphic' ? (item.displayDurationSeconds ?? 15) : null,
     position: item.position,
     mediaUrl: resolveMediaUrl(item.mediaUrl),
     thumbnailUrl: resolveMediaUrl(item.thumbnailUrl ?? (type === 'Graphic' ? item.mediaUrl : null)),
@@ -76,6 +87,7 @@ export function createDraftPlaylistItems(items: LibraryItemViewModel[]): Playlis
     type: item.type,
     title: item.title,
     duration: item.duration,
+    displayDurationSeconds: item.type === 'Graphic' ? 15 : null,
     position: 0,
     mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,

@@ -54,10 +54,12 @@ class Api::V1::ScreenPlaylistsControllerTest < ActionDispatch::IntegrationTest
     assert_empty response.parsed_body.fetch("items")
 
     patch "/api/v1/screens/#{@screen.id}/playlist", params: {
-      items: [ { content_id: content_id } ]
+      items: [ { content_id: content_id, display_duration_seconds: 25 } ]
     }, headers: @headers, as: :json
     assert_response :success
     assert_equal [ content_id ], response.parsed_body.fetch("items").map { |item| item.fetch("contentId") }
+    assert_equal 25, response.parsed_body.dig("items", 0, "displayDurationSeconds")
+    assert_equal 15, Content.find(content_id).duration
   end
 
   test "replaces the whole playlist and supports saving an empty playlist" do
@@ -69,6 +71,46 @@ class Api::V1::ScreenPlaylistsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_empty response.parsed_body.fetch("items")
     assert_not Content.exists?(content_id)
+  end
+
+  test "stores image display duration on the playlist item without changing media" do
+    image = fixture_file_upload(file_fixture("one.jpg"), "image/jpeg")
+    upload(type: "Graphic", name: "Timed image", field: :image, file: image)
+    item = response.parsed_body
+    content = Content.find(item.fetch("contentId"))
+
+    patch "/api/v1/screens/#{@screen.id}/playlist/#{item.fetch("submissionId")}", params: {
+      display_duration_seconds: 30
+    }, headers: @headers, as: :json
+
+    assert_response :success
+    assert_equal 30, response.parsed_body.fetch("displayDurationSeconds")
+    assert_equal 15, content.reload.duration
+    assert_equal 30, Submission.find(item.fetch("submissionId")).display_duration_seconds
+  end
+
+  test "rejects display duration updates for video items" do
+    upload(type: "Video", name: "Timed video", field: :video, file: video_upload)
+    item = response.parsed_body
+
+    patch "/api/v1/screens/#{@screen.id}/playlist/#{item.fetch("submissionId")}", params: {
+      display_duration_seconds: 30
+    }, headers: @headers, as: :json
+
+    assert_response :unprocessable_entity
+    assert_nil Submission.find(item.fetch("submissionId")).display_duration_seconds
+  end
+
+  test "validates image display duration range" do
+    image = fixture_file_upload(file_fixture("one.jpg"), "image/jpeg")
+    upload(type: "Graphic", name: "Timed image", field: :image, file: image)
+    item = response.parsed_body
+
+    patch "/api/v1/screens/#{@screen.id}/playlist/#{item.fetch("submissionId")}", params: {
+      display_duration_seconds: 0
+    }, headers: @headers, as: :json
+
+    assert_response :unprocessable_entity
   end
 
   test "uploads a video to the media library without assigning it" do

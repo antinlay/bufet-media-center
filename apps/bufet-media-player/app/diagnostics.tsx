@@ -10,9 +10,11 @@ import { TvButton } from '@/components/ui/tv-button';
 type CheckState = {
   networkState?: Awaited<ReturnType<typeof Network.getNetworkStateAsync>>;
   ip?: string;
-  baseUrl?: string | null;
+  savedBaseUrl?: string | null;
+  resolvedBaseUrl?: string | null;
   probe?: ProbeResult | null;
   lastError?: unknown;
+  screenError?: string;
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -35,20 +37,31 @@ export default function DiagnosticsScreen() {
 
   useEffect(() => {
     const init = async () => {
-      const id = await PlayerService.getOrCreateDeviceId();
-      setDeviceId(id);
       const saved = await ApiBaseUrl.readSavedBaseUrl();
-      setChecks((prev) => ({ ...prev, baseUrl: PlayerService.getCachedApiBaseUrl() ?? saved ?? configuredApiUrl }));
+      setChecks((prev) => ({ ...prev, savedBaseUrl: saved }));
+
+      try {
+        const id = await PlayerService.getOrCreateDeviceId();
+        setDeviceId(id);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        setChecks((prev) => ({ ...prev, screenError: `Device initialization failed: ${detail}` }));
+      }
     };
-    init();
+    void init();
   }, [configuredApiUrl]);
 
   const runChecks = async () => {
-    if (!deviceId) return;
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     setBusy(true);
     try {
+      let id = deviceId;
+      if (!id) {
+        id = await PlayerService.getOrCreateDeviceId();
+        setDeviceId(id);
+      }
+
       const [networkState, ip, saved, baseUrlResolved] = await Promise.all([
         Network.getNetworkStateAsync(),
         Network.getIpAddressAsync().catch(() => '0.0.0.0'),
@@ -56,7 +69,7 @@ export default function DiagnosticsScreen() {
         (async () => {
           // Try to resolve, but don't throw; diagnostics should always render.
           try {
-            return await ApiBaseUrl.resolve(deviceId, { abortSignal: abortRef.current?.signal });
+            return await ApiBaseUrl.resolve(id, { abortSignal: abortRef.current?.signal });
           } catch {
             return null;
           }
@@ -64,10 +77,13 @@ export default function DiagnosticsScreen() {
       ]);
 
       const baseUrl = PlayerService.getCachedApiBaseUrl() ?? baseUrlResolved ?? saved ?? configuredApiUrl;
-      const probe = baseUrl ? await ApiBaseUrl.probe(baseUrl, deviceId) : null;
+      const probe = baseUrl ? await ApiBaseUrl.probe(baseUrl, id) : null;
       const lastError = PlayerService.getLastNetworkError();
 
-      setChecks({ networkState, ip, baseUrl, probe, lastError });
+      setChecks({ networkState, ip, savedBaseUrl: saved, resolvedBaseUrl: baseUrl, probe, lastError });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setChecks((prev) => ({ ...prev, screenError: `Checks failed: ${detail}` }));
     } finally {
       setBusy(false);
     }
@@ -79,7 +95,8 @@ export default function DiagnosticsScreen() {
 
       <Row label="deviceId" value={deviceId ?? '(loading)'} />
       <Row label="cached baseUrl" value={PlayerService.getCachedApiBaseUrl() ?? '(none)'} />
-      <Row label="saved baseUrl" value={(checks.baseUrl ?? null) ? String(checks.baseUrl) : '(none)'} />
+      <Row label="saved baseUrl" value={checks.savedBaseUrl ?? '(none)'} />
+      <Row label="resolved baseUrl" value={checks.resolvedBaseUrl ?? '(none)'} />
       <Row label="EXPO_PUBLIC_API_URL" value={envApiUrl} />
       <Row label="configured API URL" value={configuredApiUrl} />
 
@@ -104,6 +121,8 @@ export default function DiagnosticsScreen() {
       </View>
 
       {busy ? <ActivityIndicator size="large" color="#ffffff" style={styles.spinner} /> : null}
+
+      {checks.screenError ? <Text style={styles.error} selectable>{checks.screenError}</Text> : null}
 
       {checks.probe ? (
         <View style={styles.section}>
@@ -167,5 +186,10 @@ const styles = StyleSheet.create({
     color: '#aaaaaa',
     marginTop: 8,
     fontSize: 12,
+  },
+  error: {
+    color: '#ff8a80',
+    marginTop: 14,
+    fontSize: 14,
   },
 });

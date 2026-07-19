@@ -237,6 +237,7 @@ export const ConcertoPlaylistItemSchema = z.object({
   type: z.string(),
   name: z.string().nullable().optional(),
   duration: z.number().nullable().optional(),
+  displayDurationSeconds: z.number().int().min(1).max(3600).nullable().optional(),
   position: z.number(),
   mediaUrl: z.string().nullable().optional(),
   thumbnailUrl: z.string().nullable().optional(),

@@ -33,6 +33,11 @@ export type AppColors = {
   shadowSoft: string;
   shadowStrong: string;
   focusRing: string;
+  glassBackground: string;
+  glassBorder: string;
+  tabBarBackground: string;
+  tabBarActive: string;
+  tabBarInactive: string;
 };
 
 export const radius = {
@@ -95,6 +100,11 @@ const darkColors: AppColors = {
   shadowSoft: '0 10px 26px rgba(0, 0, 0, 0.24)',
   shadowStrong: '0 24px 64px rgba(0, 0, 0, 0.42)',
   focusRing: '0 0 0 3px rgba(242, 160, 24, 0.24)',
+  glassBackground: 'rgba(20, 22, 27, 0.82)',
+  glassBorder: 'rgba(247, 242, 232, 0.16)',
+  tabBarBackground: 'rgba(18, 20, 24, 0.9)',
+  tabBarActive: '#F2A018',
+  tabBarInactive: '#9297A1',
 };
 
 const lightColors: AppColors = {
@@ -127,6 +137,11 @@ const lightColors: AppColors = {
   shadowSoft: '0 10px 26px rgba(67, 43, 20, 0.12)',
   shadowStrong: '0 24px 64px rgba(67, 43, 20, 0.2)',
   focusRing: '0 0 0 3px rgba(217, 133, 9, 0.22)',
+  glassBackground: 'rgba(255, 253, 249, 0.86)',
+  glassBorder: 'rgba(74, 63, 54, 0.18)',
+  tabBarBackground: 'rgba(255, 253, 249, 0.92)',
+  tabBarActive: '#D98509',
+  tabBarInactive: '#74695F',
 };
 
 const fontConfig = { fontFamily: brandFonts.body };

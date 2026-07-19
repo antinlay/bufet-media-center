@@ -22,7 +22,7 @@ class PlayerConfigBuilder
           content = submission.content
           next unless renderable_content?(content)
 
-          items << playlist_item_for(content, order)
+          items << playlist_item_for(content, order, display_duration_seconds: submission.display_duration_seconds)
           order += 1
         end
     else
@@ -61,7 +61,7 @@ class PlayerConfigBuilder
     end
   end
 
-  def playlist_item_for(content, order)
+  def playlist_item_for(content, order, display_duration_seconds: nil)
     base = {
       id: to_uuid(content.id),
       playlistId: to_uuid(@screen.id),
@@ -74,7 +74,7 @@ class PlayerConfigBuilder
       base.merge(
         type: "IMAGE",
         url: rails_blob_path(content.image, only_path: true),
-        durationSeconds: content.duration || 15
+        durationSeconds: display_duration_seconds || 15
       )
     elsif content.is_a?(Video)
       base.merge(

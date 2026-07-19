@@ -183,7 +183,7 @@ module Supabase
             media_id: media["id"],
             legacy_submission_id: submission.id,
             position: submission.position,
-            duration_seconds: content.duration
+            duration_seconds: content.is_a?(Graphic) ? (submission.display_duration_seconds || 15) : content.duration
           }
         end
       end

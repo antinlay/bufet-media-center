@@ -9,6 +9,7 @@ import {
   type LibraryItemViewModel,
   type PlaylistLabels,
   type PlaylistItemViewModel,
+  type ScreenPlaylistCardViewModel,
 } from './model';
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
@@ -27,6 +28,26 @@ export async function loadMediaLibrary(labels: PlaylistLabels, signal?: AbortSig
     const item = mapLibraryItem(content, labels);
     return item ? [item] : [];
   });
+}
+
+export async function loadScreenPlaylists(labels: PlaylistLabels, signal?: AbortSignal): Promise<ScreenPlaylistCardViewModel[]> {
+  const screens = (await apiClient.getScreens(signal)).filter((screen) => Boolean(screen.device));
+  const cards = await Promise.all(screens.map(async (screen) => {
+    const playlist = await apiClient.getScreenPlaylist(screen.id, signal);
+    const items = playlist.items.map((item) => mapPlaylistItem(item, labels));
+    const durations = items.map((item) => item.type === 'Graphic' ? (item.displayDurationSeconds ?? 15) : item.duration);
+    return {
+      screenId: screen.id,
+      title: screen.name,
+      organizationName: screen.group?.name ?? labels.noOrganization,
+      itemCount: items.length,
+      totalDurationSeconds: durations.some((duration) => duration == null)
+        ? null
+        : durations.reduce<number>((total, duration) => total + (duration ?? 0), 0),
+      previews: items.slice(0, 6).map(({ key, thumbnailUrl, type }) => ({ key, thumbnailUrl, type })),
+    };
+  }));
+  return cards.sort((left, right) => left.title.localeCompare(right.title));
 }
 
 export async function uploadMediaFiles(
@@ -72,6 +93,21 @@ export async function savePlaylist(
   const playlist = await apiClient.replaceScreenPlaylist(screenId, items.map((item) => ({
     submission_id: item.submissionId,
     content_id: item.contentId,
+    display_duration_seconds: item.type === 'Graphic' ? (item.displayDurationSeconds ?? 15) : undefined,
   })));
   return playlist.items.map((item) => mapPlaylistItem(item, labels));
+}
+
+export async function updatePlaylistItemDuration(
+  screenId: number,
+  submissionId: number,
+  displayDurationSeconds: number,
+  labels: PlaylistLabels,
+) {
+  const item = await apiClient.updateScreenPlaylistItemDuration(
+    screenId,
+    submissionId,
+    displayDurationSeconds,
+  );
+  return mapPlaylistItem(item, labels);
 }

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_010100) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_010200) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -179,12 +179,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_010100) do
   create_table "submissions", force: :cascade do |t|
     t.integer "content_id", null: false
     t.datetime "created_at", null: false
+    t.integer "display_duration_seconds"
     t.integer "feed_id", null: false
     t.integer "position", null: false
     t.datetime "updated_at", null: false
     t.index ["content_id"], name: "index_submissions_on_content_id"
     t.index ["feed_id", "position"], name: "index_submissions_on_feed_id_and_position"
     t.index ["feed_id"], name: "index_submissions_on_feed_id"
+    t.check_constraint "display_duration_seconds IS NULL OR display_duration_seconds BETWEEN 1 AND 3600", name: "submissions_display_duration_seconds_range"
   end
 
   create_table "subscriptions", force: :cascade do |t|

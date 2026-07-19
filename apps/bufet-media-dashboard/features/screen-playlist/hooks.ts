@@ -14,13 +14,16 @@ import {
   addVideoUrl,
   loadMediaLibrary,
   loadPlaylistEditor,
+  loadScreenPlaylists,
   savePlaylist,
+  updatePlaylistItemDuration,
   uploadMediaFiles,
 } from './repository';
 
 export const playlistEditorKey = (screenId: number) => ['screen-playlist-editor', screenId] as const;
 export const playlistDraftKey = (screenId: number) => ['screen-playlist-draft', screenId] as const;
 export const mediaLibraryKey = ['media-library'] as const;
+export const screenPlaylistsKey = ['screen-playlists'] as const;
 
 export function usePlaylistEditor(screenId: number | null) {
   const { language, t } = useI18n();
@@ -39,6 +42,15 @@ export function useMediaLibrary() {
     queryKey: [...mediaLibraryKey, language],
     queryFn: ({ signal }) => loadMediaLibrary(labels, signal),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useScreenPlaylists() {
+  const { language, t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
+  return useQuery({
+    queryKey: [...screenPlaylistsKey, language],
+    queryFn: ({ signal }) => loadScreenPlaylists(labels, signal),
   });
 }
 
@@ -120,6 +132,21 @@ export function useSavePlaylistOrder(screenId: number) {
     onSuccess: () => {
       void invalidate().catch((error) => {
         console.warn('Playlist refresh failed after successful save', error);
+      });
+    },
+  });
+}
+
+export function useUpdatePlaylistItemDuration(screenId: number) {
+  const invalidate = usePlaylistInvalidation(screenId);
+  const { t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
+  return useMutation({
+    mutationFn: ({ submissionId, displayDurationSeconds }: { submissionId: number; displayDurationSeconds: number }) =>
+      updatePlaylistItemDuration(screenId, submissionId, displayDurationSeconds, labels),
+    onSuccess: () => {
+      void invalidate().catch((error) => {
+        console.warn('Playlist refresh failed after duration update', error);
       });
     },
   });

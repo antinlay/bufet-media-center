@@ -17,7 +17,7 @@ export default (): ExpoConfig => {
       : {}),
     ...(isCompactApkProfile
       ? {
-          buildArchs: ['arm64-v8a'],
+          buildArchs: ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'],
           useLegacyPackaging: true,
         }
       : {}),
@@ -39,6 +39,11 @@ export default (): ExpoConfig => {
       bundleIdentifier: 'com.lyabowski.bufet-media-player',
     },
     android: {
+      blockedPermissions: [
+        'android.permission.SYSTEM_ALERT_WINDOW',
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
+      ],
       adaptiveIcon: {
         backgroundColor: '#0B0807',
         foregroundImage: './assets/images/icon.png',

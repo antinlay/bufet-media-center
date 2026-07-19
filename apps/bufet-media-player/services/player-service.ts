@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Crypto from 'expo-crypto';
 
 import {
   BootstrapResponse,
@@ -258,21 +259,7 @@ export class PlayerService {
   }
 
   private static generateId(): string {
-    // UUID v4 generator without external deps
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    // Set version 4
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    // Set variant 10xxxxxx
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    const toHex = (n: number) => n.toString(16).padStart(2, '0');
-    const segments = [
-      Array.from(bytes.slice(0, 4)).map(toHex).join(''),
-      Array.from(bytes.slice(4, 6)).map(toHex).join(''),
-      Array.from(bytes.slice(6, 8)).map(toHex).join(''),
-      Array.from(bytes.slice(8, 10)).map(toHex).join(''),
-      Array.from(bytes.slice(10, 16)).map(toHex).join(''),
-    ];
-    return segments.join('-');
+    return Crypto.randomUUID();
   }
 
   static async getOrCreateDeviceId(): Promise<string> {

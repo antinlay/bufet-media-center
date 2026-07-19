@@ -1,0 +1,99 @@
+import { Pressable, StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Text } from 'react-native-paper';
+
+import { MainTabScreen } from '../../components/main-tab-screen';
+import { useProtectedRoute } from '../../hooks/useProtectedRoute';
+import { useAuth } from '../../providers/AuthProvider';
+import { useAppTheme } from '../../providers/AppThemeProvider';
+import { useI18n } from '../../providers/I18nProvider';
+import type { TranslationKey } from '../../locales/ru';
+import { brandFonts, type AppColors } from '../../theme';
+
+type SettingRow = {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  title: TranslationKey;
+  subtitle: TranslationKey;
+  action?: 'organizations' | 'theme' | 'language';
+};
+
+const rows: readonly SettingRow[] = [
+  { icon: 'account-outline', title: 'settings.profile', subtitle: 'settings.profileSubtitle' },
+  { icon: 'office-building-outline', title: 'settings.organizations', subtitle: 'settings.organizationsSubtitle', action: 'organizations' },
+  { icon: 'bell-outline', title: 'settings.notifications', subtitle: 'settings.notificationsSubtitle' },
+  { icon: 'theme-light-dark', title: 'settings.appearance', subtitle: 'settings.appearanceSubtitle', action: 'theme' },
+  { icon: 'connection', title: 'settings.integrations', subtitle: 'settings.integrationsSubtitle' },
+  { icon: 'translate', title: 'settings.language', subtitle: 'settings.languageSubtitle', action: 'language' },
+];
+
+export default function SettingsScreen() {
+  useProtectedRoute();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const { colors, radius, scheme, toggleScheme } = useAppTheme();
+  const { language, setLanguage, t } = useI18n();
+  const styles = createStyles(colors, radius.lg, radius.pill);
+
+  const runAction = (action?: SettingRow['action']) => {
+    if (action === 'organizations') router.push('/groups');
+    if (action === 'theme') toggleScheme();
+    if (action === 'language') setLanguage(language === 'ru' ? 'en' : 'ru');
+  };
+
+  return (
+    <MainTabScreen title={t('settings.title')}>
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}><MaterialCommunityIcons name="account" color={colors.accent} size={28} /></View>
+        <View style={styles.profileCopy}>
+          <Text style={styles.profileName}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ') || t('common.user')}</Text>
+          <Text selectable style={styles.profileEmail}>{user?.email}</Text>
+        </View>
+      </View>
+
+      <View style={styles.list}>
+        {rows.map((row) => (
+          <Pressable
+            key={row.title}
+            accessibilityRole={row.action ? 'button' : undefined}
+            disabled={!row.action}
+            onPress={() => runAction(row.action)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <View style={styles.icon}><MaterialCommunityIcons name={row.icon} color={colors.accent} size={22} /></View>
+            <View style={styles.copy}>
+              <Text style={styles.title}>{t(row.title)}</Text>
+              <Text style={styles.subtitle}>{t(row.subtitle)}</Text>
+            </View>
+            {row.action === 'theme' ? <Text style={styles.value}>{t(scheme === 'dark' ? 'theme.dark' : 'theme.light')}</Text> : null}
+            {row.action === 'language' ? <Text style={styles.value}>{language.toUpperCase()}</Text> : null}
+            {row.action ? <MaterialCommunityIcons name="chevron-right" color={colors.textMuted} size={22} /> : null}
+          </Pressable>
+        ))}
+        <Pressable accessibilityRole="button" onPress={logout} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+          <View style={[styles.icon, styles.logoutIcon]}><MaterialCommunityIcons name="logout" color={colors.danger} size={22} /></View>
+          <View style={styles.copy}><Text style={styles.logout}>{t('settings.logout')}</Text><Text style={styles.subtitle}>{t('settings.logoutSubtitle')}</Text></View>
+          <MaterialCommunityIcons name="chevron-right" color={colors.danger} size={22} />
+        </Pressable>
+      </View>
+    </MainTabScreen>
+  );
+}
+
+const createStyles = (colors: AppColors, radiusLg: number, radiusPill: number) => StyleSheet.create({
+  profileCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, borderRadius: radiusLg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  avatar: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: radiusPill, backgroundColor: colors.accentMuted },
+  profileCopy: { minWidth: 0, flex: 1, gap: 4 },
+  profileName: { color: colors.textPrimary, fontFamily: brandFonts.bodyEmphasis, fontSize: 16 },
+  profileEmail: { color: colors.textMuted, fontFamily: brandFonts.body, fontSize: 12 },
+  list: { overflow: 'hidden', borderRadius: radiusLg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  row: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, paddingVertical: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  icon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentMuted },
+  logoutIcon: { backgroundColor: colors.dangerMuted },
+  copy: { minWidth: 0, flex: 1, gap: 3 },
+  title: { color: colors.textPrimary, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
+  subtitle: { color: colors.textMuted, fontFamily: brandFonts.body, fontSize: 11 },
+  value: { color: colors.textSecondary, fontFamily: brandFonts.bodyEmphasis, fontSize: 11 },
+  logout: { color: colors.danger, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
+  pressed: { opacity: 0.72, backgroundColor: colors.surfaceMuted },
+});

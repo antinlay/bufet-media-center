@@ -3,6 +3,9 @@ class Submission < ApplicationRecord
   belongs_to :feed
 
   validates :position, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validates :display_duration_seconds,
+    numericality: { only_integer: true, greater_than_or_equal_to: 1, less_than_or_equal_to: 3600 },
+    allow_nil: true
 
   before_validation :assign_position, on: :create
 

@@ -98,6 +98,28 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
   def update
     submission = find_submission
     content = submission.content
+
+    if display_duration_param_present?
+      unless content.is_a?(Graphic)
+        render json: { message: "Display duration can only be changed for images" }, status: :unprocessable_entity
+        return
+      end
+
+      duration = normalized_display_duration(display_duration_param)
+      unless duration
+        render json: { message: "Display duration must be between 1 and 3600 seconds" }, status: :unprocessable_entity
+        return
+      end
+
+      if submission.update(display_duration_seconds: duration)
+        sync_supabase!
+        render json: serialize_playlist_item(submission)
+      else
+        render json: { message: submission.errors.full_messages.to_sentence }, status: :unprocessable_entity
+      end
+      return
+    end
+
     content.assign_attributes(update_payload(content))
 
     attach_graphic_image(content)
@@ -131,15 +153,22 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
     end
 
     entries = items.map do |item|
-      payload = item.respond_to?(:permit) ? item.permit(:submission_id, :submissionId, :content_id, :contentId) : item
+      payload = item.respond_to?(:permit) ? item.permit(:submission_id, :submissionId, :content_id, :contentId, :display_duration_seconds, :displayDurationSeconds) : item
       {
         submission_id: (payload[:submission_id].presence || payload[:submissionId].presence)&.to_i,
-        content_id: (payload[:content_id].presence || payload[:contentId].presence)&.to_i
+        content_id: (payload[:content_id].presence || payload[:contentId].presence)&.to_i,
+        display_duration_seconds: (payload[:display_duration_seconds].presence || payload[:displayDurationSeconds].presence)&.to_i,
+        display_duration_provided: payload.key?(:display_duration_seconds) || payload.key?(:displayDurationSeconds)
       }
     end
 
     if entries.any? { |entry| entry[:submission_id].blank? && entry[:content_id].blank? }
       render json: { message: "Each item requires submission_id or content_id" }, status: :unprocessable_entity
+      return
+    end
+
+    if entries.any? { |entry| entry[:display_duration_provided] && normalized_display_duration(entry[:display_duration_seconds]).nil? }
+      render json: { message: "Display duration must be between 1 and 3600 seconds" }, status: :unprocessable_entity
       return
     end
 
@@ -184,7 +213,12 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
       orphan_candidates = removed_submissions.filter_map(&:content).uniq
       removed_submissions.each(&:destroy!)
       saved_submissions.each_with_index do |submission, position|
-        submission.update!(position: position)
+        entry = entries.fetch(position)
+        attributes = { position: position }
+        if submission.content.is_a?(Graphic) && entry[:display_duration_provided]
+          attributes[:display_duration_seconds] = entry[:display_duration_seconds]
+        end
+        submission.update!(attributes)
       end
       orphan_candidates.each do |content|
         content.destroy! unless content.submissions.exists?
@@ -282,6 +316,21 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
 
   def content_payload
     params[:content].presence || params
+  end
+
+  def display_duration_param_present?
+    content_payload.key?(:display_duration_seconds) || content_payload.key?(:displayDurationSeconds)
+  end
+
+  def display_duration_param
+    content_payload[:display_duration_seconds] || content_payload[:displayDurationSeconds]
+  end
+
+  def normalized_display_duration(value)
+    return unless value.to_s.match?(/\A\d+\z/)
+
+    duration = Integer(value, exception: false)
+    duration if duration&.between?(1, 3600)
   end
 
   def create_payload

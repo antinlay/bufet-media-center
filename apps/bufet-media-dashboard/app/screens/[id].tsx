@@ -11,8 +11,10 @@ import {
   usePlaylistDraftActions,
   usePlaylistEditor,
   useSavePlaylistOrder,
+  useUpdatePlaylistItemDuration,
   useUploadPlaylistFiles,
 } from '../../features/screen-playlist/hooks';
+import { DisplayDurationDialog } from '../../features/screen-playlist/DisplayDurationDialog';
 import { MediaThumbnail } from '../../features/screen-playlist/MediaThumbnail';
 import { formatDuration, type PlaylistItemViewModel } from '../../features/screen-playlist/model';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
@@ -54,11 +56,13 @@ export default function PlaylistEditorScreen() {
   const draftActions = usePlaylistDraftActions(screenId ?? 0);
   const uploadMutation = useUploadPlaylistFiles();
   const saveMutation = useSavePlaylistOrder(screenId ?? 0);
+  const durationMutation = useUpdatePlaylistItemDuration(screenId ?? 0);
   const [items, setItems] = useState<PlaylistItemViewModel[]>([]);
   const [dirty, setDirty] = useState(false);
   const dirtyRef = useRef(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [itemMenuId, setItemMenuId] = useState<string | null>(null);
+  const [durationItem, setDurationItem] = useState<PlaylistItemViewModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
@@ -173,6 +177,30 @@ export default function PlaylistEditorScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: remove },
     ]);
+  };
+
+  const saveDuration = async (displayDurationSeconds: number) => {
+    if (!durationItem || !screenId) return;
+    const updateItem = (item: PlaylistItemViewModel) => (
+      item.key === durationItem.key ? { ...item, displayDurationSeconds } : item
+    );
+
+    if (durationItem.submissionId !== null) {
+      const savedItem = await durationMutation.mutateAsync({
+        submissionId: durationItem.submissionId,
+        displayDurationSeconds,
+      });
+      setItems((current) => current.map((item) => item.key === durationItem.key ? savedItem : item));
+    } else {
+      const savedItems = await saveMutation.mutateAsync(normalizeOrder(displayedItems.map(updateItem)));
+      draftActions.clear();
+      dirtyRef.current = false;
+      setItems(normalizeOrder(savedItems));
+      setDirty(false);
+    }
+
+    setSuccess(t('playlist.displayTimeSaved'));
+    setError(null);
   };
 
   const plusButton = (
@@ -293,7 +321,12 @@ export default function PlaylistEditorScreen() {
                 <View style={styles.itemCopy}>
                   <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
                   <Text style={styles.itemMeta}>
-                    {t(item.type === 'Video' ? 'playlist.mediaVideo' : 'playlist.mediaImage')} · {formatDuration(item.duration) ?? t('playlist.durationAuto')}
+                    {item.type === 'Graphic'
+                      ? t('playlist.imageDuration', {
+                          seconds: item.displayDurationSeconds ?? 15,
+                          compact: formatDuration(item.displayDurationSeconds ?? 15) ?? '00:15',
+                        })
+                      : `${t('playlist.mediaVideo')} · ${formatDuration(item.duration) ?? t('playlist.durationAuto')}`}
                   </Text>
                 </View>
                 <Pressable
@@ -320,10 +353,28 @@ export default function PlaylistEditorScreen() {
                     </Pressable>
                   }
                 >
+                  {displayedItems.length >= 2 && item.type === 'Graphic' ? (
+                    <Menu.Item
+                      leadingIcon="timer-edit-outline"
+                      title={t('playlist.changeDisplayTime')}
+                      onPress={() => {
+                        setItemMenuId(null);
+                        setDurationItem(item);
+                      }}
+                      style={styles.itemMenuRow}
+                      titleStyle={styles.itemMenuTitle}
+                      theme={addMenuItemTheme}
+                      rippleColor={colors.accentMuted}
+                    />
+                  ) : null}
                   <Menu.Item
                     leadingIcon="trash-can-outline"
                     title={t('common.delete')}
                     onPress={() => requestDelete(item)}
+                    style={styles.itemMenuRow}
+                    titleStyle={styles.itemMenuTitle}
+                    theme={addMenuItemTheme}
+                    rippleColor={colors.dangerMuted}
                   />
                 </Menu>
               </View>
@@ -350,6 +401,11 @@ export default function PlaylistEditorScreen() {
           </Pressable>
         </View>
       </View>
+      <DisplayDurationDialog
+        item={durationItem}
+        onClose={() => setDurationItem(null)}
+        onSave={saveDuration}
+      />
     </GalleryShell>
   );
 }
@@ -430,7 +486,9 @@ const createStyles = (colors: AppColors, radiusLg: number, radiusXl: number) => 
     fontFamily: brandFonts.bodyEmphasis,
     fontSize: 15,
   },
-  itemMenu: { backgroundColor: colors.surfaceElevated },
+  itemMenu: { paddingVertical: 6, borderRadius: radiusLg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, boxShadow: colors.shadowSoft },
+  itemMenuRow: { height: 50 },
+  itemMenuTitle: { color: colors.textPrimary, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
   list: { flex: 1 },
   listContent: { gap: 10, paddingTop: 16, paddingBottom: 18 },
   emptyListContent: { flexGrow: 1, justifyContent: 'center' },

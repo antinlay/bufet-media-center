@@ -15,38 +15,57 @@ export default function SetupScreen() {
   const [progress, setProgress] = useState<DiscoverProgress | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    const init = async () => {
+  const ensureDeviceId = async () => {
+    if (deviceId) return deviceId;
+
+    try {
       const id = await PlayerService.getOrCreateDeviceId();
       setDeviceId(id);
-      const saved = await ApiBaseUrl.readSavedBaseUrl();
+      return id;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setMessage(`Device initialization failed: ${detail}`);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
       const configured = ApiBaseUrl.getConfiguredApiUrl();
       setConfiguredUrl(configured);
+
+      const saved = await ApiBaseUrl.readSavedBaseUrl();
       if (saved) {
         setSavedUrl(saved);
-        return;
-      }
-
-      if (configured) {
+      } else if (configured) {
         await ApiBaseUrl.saveBaseUrl(configured);
         setSavedUrl(configured);
       }
+
+      await ensureDeviceId();
     };
-    init();
+    void init();
+    // Run once on screen mount. ensureDeviceId reads the initial null state here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onRefresh = async () => {
-    if (!deviceId) return;
+    const id = await ensureDeviceId();
+    if (!id) return;
+
     abortRef.current?.abort();
-    abortRef.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setBusy(true);
     setMessage('Checking API...');
     setProgress({ total: 0, done: 0 });
     try {
-      const resolved = await ApiBaseUrl.resolve(deviceId, {
-        abortSignal: abortRef.current.signal,
+      const resolved = await ApiBaseUrl.resolve(id, {
+        abortSignal: controller.signal,
         onDiscoveryProgress: (p) => setProgress(p),
       });
+
+      if (controller.signal.aborted) return;
 
       if (!resolved) {
         setMessage('No API found yet. Check the network and press Refresh again.');
@@ -57,8 +76,11 @@ export default function SetupScreen() {
       setMessage(`Ready: ${resolved}`);
       router.replace('/loading');
     } finally {
-      setBusy(false);
-      setProgress(null);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setBusy(false);
+        setProgress(null);
+      }
     }
   };
 

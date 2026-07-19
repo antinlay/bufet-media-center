@@ -4,6 +4,7 @@ import * as Network from 'expo-network';
 const SECURE_STORE_KEY = 'bufet_api_base_url';
 const DEFAULT_DISCOVERY_PORTS = '443,80,3000';
 const PROBE_TIMEOUT_MS = 2000;
+const CONFIGURED_PROBE_TIMEOUT_MS = 45_000;
 const DISCOVERY_CONCURRENCY = 20;
 const DISCOVERY_MAX_MS = 20_000;
 
@@ -109,10 +110,15 @@ function abortableTimeout(timeoutMs: number, callerSignal?: AbortSignal): { sign
   };
 }
 
-async function probe(baseUrlRaw: string, deviceId: string, callerSignal?: AbortSignal): Promise<ProbeResult> {
+async function probe(
+  baseUrlRaw: string,
+  deviceId: string,
+  callerSignal?: AbortSignal,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<ProbeResult> {
   const baseUrl = normalize(baseUrlRaw);
   const url = `${baseUrl}/api/player/bootstrap?deviceId=${encodeURIComponent(deviceId)}`;
-  const { signal, cancel } = abortableTimeout(PROBE_TIMEOUT_MS, callerSignal);
+  const { signal, cancel } = abortableTimeout(timeoutMs, callerSignal);
   try {
     const response = await fetch(url, { signal });
     const status = response.status;
@@ -263,8 +269,11 @@ async function resolve(deviceId: string, opts?: { onDiscoveryProgress?: (p: Disc
 
   const configured = configuredApiUrl();
   if (configured) {
-    for (const candidate of asUrlCandidates(configured)) {
-      const ok = await probe(candidate, deviceId, opts?.abortSignal);
+    const candidates = asUrlCandidates(configured);
+    for (const [index, candidate] of candidates.entries()) {
+      opts?.onDiscoveryProgress?.({ total: candidates.length, done: index, current: candidate });
+      const ok = await probe(candidate, deviceId, opts?.abortSignal, CONFIGURED_PROBE_TIMEOUT_MS);
+      opts?.onDiscoveryProgress?.({ total: candidates.length, done: index + 1, current: candidate });
       if (ok.ok) {
         await saveBaseUrl(ok.baseUrl);
         return ok.baseUrl;

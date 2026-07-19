@@ -162,6 +162,7 @@ module Api::V1::ConcertoSerializer
       type: content.type,
       name: content.name,
       duration: content.duration,
+      displayDurationSeconds: submission.display_duration_seconds,
       position: submission.position,
       mediaUrl: media_url,
       thumbnailUrl: thumbnail_url,

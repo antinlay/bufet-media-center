@@ -269,7 +269,7 @@ export class ApiClient {
   async updateScreenPlaylistItem(
     screenId: number,
     submissionId: number,
-    payload: { name?: string; duration?: number; url?: string },
+    payload: { name?: string; duration?: number; url?: string; display_duration_seconds?: number },
   ): Promise<ConcertoPlaylistItem> {
     const res = await request(`/api/v1/screens/${screenId}/playlist/${submissionId}`, {
       method: 'PATCH',
@@ -277,6 +277,16 @@ export class ApiClient {
       body: JSON.stringify(payload),
     });
     return handleResponse<ConcertoPlaylistItem>(res);
+  }
+
+  async updateScreenPlaylistItemDuration(
+    screenId: number,
+    submissionId: number,
+    displayDurationSeconds: number,
+  ): Promise<ConcertoPlaylistItem> {
+    return this.updateScreenPlaylistItem(screenId, submissionId, {
+      display_duration_seconds: displayDurationSeconds,
+    });
   }
 
   async reorderScreenPlaylist(screenId: number, submissionIds: number[]): Promise<void> {
@@ -290,7 +300,11 @@ export class ApiClient {
 
   async replaceScreenPlaylist(
     screenId: number,
-    items: Array<{ submission_id: number | null; content_id: number }>,
+    items: Array<{
+      submission_id: number | null;
+      content_id: number;
+      display_duration_seconds?: number;
+    }>,
   ): Promise<ConcertoPlaylistResponse> {
     const res = await request(`/api/v1/screens/${screenId}/playlist`, {
       method: 'PATCH',

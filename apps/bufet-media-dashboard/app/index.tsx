@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Text } from 'react-native-paper';
 
-import { GalleryShell } from '../features/media-points/GalleryShell';
+import { MainTabScreen } from '../components/main-tab-screen';
+import { SearchField } from '../components/search-field';
 import { ScreenGallery } from '../features/media-points/ScreenGallery';
 import { useDeleteScreen, useMediaPointsDashboard } from '../features/media-points/hooks';
 import type { OrganizationMediaSection } from '../features/media-points/model';
@@ -23,6 +24,19 @@ export default function DashboardHome() {
   const styles = createStyles(colors, radius.lg, radius.pill);
   const dashboardQuery = useMediaPointsDashboard(!authLoading && Boolean(token));
   const deleteMutation = useDeleteScreen();
+  const [search, setSearch] = useState('');
+  const filteredDashboard = useMemo(() => {
+    if (!dashboardQuery.data || !search.trim()) return dashboardQuery.data;
+    const needle = search.trim().toLocaleLowerCase();
+    return {
+      unassignedScreens: dashboardQuery.data.unassignedScreens.filter((screen) => screen.name.toLocaleLowerCase().includes(needle)),
+      organizations: dashboardQuery.data.organizations.flatMap((organization) => {
+        if (organization.name.toLocaleLowerCase().includes(needle)) return [organization];
+        const screens = organization.screens.filter((screen) => screen.name.toLocaleLowerCase().includes(needle));
+        return screens.length ? [{ ...organization, screens }] : [];
+      }),
+    };
+  }, [dashboardQuery.data, search]);
 
   const openAddScreen = (organization: OrganizationMediaSection) => {
     router.push({
@@ -35,8 +49,8 @@ export default function DashboardHome() {
   };
 
   return (
-    <GalleryShell
-      showAccount
+    <MainTabScreen
+      title={t('screens.title')}
       toolbarActions={
         <>
           <ToolbarButton
@@ -53,6 +67,7 @@ export default function DashboardHome() {
         </>
       }
     >
+      <SearchField value={search} onChangeText={setSearch} placeholder={t('screens.searchPlaceholder')} />
       {authLoading || dashboardQuery.isLoading ? (
         <View style={styles.stateCard}>
           <ActivityIndicator color={colors.accent} size="large" />
@@ -71,17 +86,17 @@ export default function DashboardHome() {
             <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
         </View>
-      ) : dashboardQuery.data ? (
+      ) : filteredDashboard ? (
         <ScreenGallery
-          unassignedScreens={dashboardQuery.data.unassignedScreens}
-          organizations={dashboardQuery.data.organizations}
+          unassignedScreens={filteredDashboard.unassignedScreens}
+          organizations={filteredDashboard.organizations}
           onAddScreen={openAddScreen}
           onEditScreen={(screenId) => router.push(`/screens/${screenId}`)}
           onDeleteScreen={(screenId) => deleteMutation.mutateAsync(screenId).then(() => undefined)}
           isDeleting={deleteMutation.isPending}
         />
       ) : null}
-    </GalleryShell>
+    </MainTabScreen>
   );
 }
 

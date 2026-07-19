@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { IconButton, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { brandFonts, type AppColors } from '../../theme';
@@ -19,6 +19,7 @@ interface GalleryShellProps {
   showAccount?: boolean;
   scrollable?: boolean;
   onBackPress?: () => void;
+  bottomNavigation?: ReactNode;
 }
 
 export function GalleryShell({
@@ -30,9 +31,9 @@ export function GalleryShell({
   showAccount = false,
   scrollable = true,
   onBackPress,
+  bottomNavigation,
 }: GalleryShellProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
@@ -80,7 +81,7 @@ export function GalleryShell({
             </View>
             <View style={[styles.toolbarActions, isMobile && styles.toolbarActionsMobile, isMobile && showBack && styles.toolbarActionsSingleRow]}>
               {toolbarActions}
-              <PreferenceControls compact={width < 760} showTheme={!isMobile || pathname === '/'} />
+              <PreferenceControls compact={width < 760} />
             </View>
           </View>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -90,7 +91,7 @@ export function GalleryShell({
           <ScrollView
             contentInsetAdjustmentBehavior="automatic"
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, bottomNavigation ? styles.scrollContentWithNavigation : undefined]}
           >
             <View style={styles.content}>{children}</View>
 
@@ -113,6 +114,7 @@ export function GalleryShell({
         ) : (
           <View style={styles.fixedContent}>{children}</View>
         )}
+        {bottomNavigation}
       </View>
     </SafeAreaView>
   );
@@ -238,6 +240,7 @@ const createStyles = (colors: AppColors, borderRadius: number) => StyleSheet.cre
     paddingHorizontal: 20,
     paddingVertical: 26,
   },
+  scrollContentWithNavigation: { paddingBottom: 142 },
   content: {
     minWidth: 0,
     gap: 28,
