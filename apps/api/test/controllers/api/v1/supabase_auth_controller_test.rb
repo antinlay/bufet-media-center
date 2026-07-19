@@ -33,15 +33,30 @@ class Api::V1::SupabaseAuthControllerTest < ActionDispatch::IntegrationTest
     assert_equal "supabase-user-id", user.reload.supabase_uid
   end
 
+  test "creates a local user for a new Supabase identity" do
+    email = "new-supabase-user@example.test"
+
+    get "/api/v1/auth/me", headers: { "Authorization" => "Bearer #{supabase_token(email:, uid: "new-supabase-user-id", metadata: { "first_name" => "New", "last_name" => "User" })}" }
+
+    assert_response :success
+    user = User.find_by!(email:)
+    assert_equal user.id, response.parsed_body.fetch("id")
+    assert_equal "new-supabase-user-id", user.supabase_uid
+    assert_equal "New", user.first_name
+    assert_equal "User", user.last_name
+    assert user.encrypted_password.present?
+  end
+
   private
 
-  def supabase_token
+  def supabase_token(email: users(:admin).email, uid: "supabase-user-id", metadata: {})
     JWT.encode(
       {
         "iss" => "#{@base_url}/auth/v1",
         "aud" => "authenticated",
-        "sub" => "supabase-user-id",
-        "email" => users(:admin).email,
+        "sub" => uid,
+        "email" => email,
+        "user_metadata" => metadata,
         "exp" => 5.minutes.from_now.to_i
       },
       @private_key,

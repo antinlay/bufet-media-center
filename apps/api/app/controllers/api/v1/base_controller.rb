@@ -72,11 +72,14 @@ class Api::V1::BaseController < ActionController::API
     end
 
     metadata = payload["user_metadata"].is_a?(Hash) ? payload["user_metadata"] : {}
+    password = Devise.friendly_token[0, 20]
     User.create!(
       email: email,
       supabase_uid: supabase_uid,
       first_name: metadata["first_name"].presence || email.split("@").first,
-      last_name: metadata["last_name"].presence || "User"
+      last_name: metadata["last_name"].presence || "User",
+      password: password,
+      password_confirmation: password
     )
   end
 
