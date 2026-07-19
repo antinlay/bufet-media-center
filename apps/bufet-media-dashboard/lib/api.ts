@@ -288,6 +288,18 @@ export class ApiClient {
     return handleResponse<void>(res);
   }
 
+  async replaceScreenPlaylist(
+    screenId: number,
+    items: Array<{ submission_id: number | null; content_id: number }>,
+  ): Promise<ConcertoPlaylistResponse> {
+    const res = await request(`/api/v1/screens/${screenId}/playlist`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: JSON.stringify({ items }),
+    });
+    return handleResponse<ConcertoPlaylistResponse>(res);
+  }
+
   async deleteScreenPlaylistItem(screenId: number, submissionId: number): Promise<void> {
     const res = await request(`/api/v1/screens/${screenId}/playlist/${submissionId}`, {
       method: 'DELETE',

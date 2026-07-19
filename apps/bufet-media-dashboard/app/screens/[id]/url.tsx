@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Text } from 'react-native-paper';
 
 import { GalleryShell } from '../../../features/media-points/GalleryShell';
-import { useAddVideoUrl, usePlaylistEditor } from '../../../features/screen-playlist/hooks';
+import { useAddVideoUrl, usePlaylistDraftActions, usePlaylistEditor } from '../../../features/screen-playlist/hooks';
 import { MediaThumbnail } from '../../../features/screen-playlist/MediaThumbnail';
 import { buildUrlPreview } from '../../../features/screen-playlist/model';
 import { useProtectedRoute } from '../../../hooks/useProtectedRoute';
@@ -21,7 +21,8 @@ export default function AddPlaylistUrlScreen() {
   const params = useLocalSearchParams<ScreenParams>();
   const screenId = params.id ? Number(params.id) : null;
   const editorQuery = usePlaylistEditor(screenId);
-  const addMutation = useAddVideoUrl(screenId ?? 0);
+  const addMutation = useAddVideoUrl();
+  const draftActions = usePlaylistDraftActions(screenId ?? 0);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -46,7 +47,10 @@ export default function AddPlaylistUrlScreen() {
     addMutation.mutate(
       { url, title: title.trim() || previewResult.preview.title },
       {
-        onSuccess: () => router.back(),
+        onSuccess: (item) => {
+          draftActions.stage([item]);
+          router.back();
+        },
         onError: () => setApiError(t('mediaUrl.addError')),
       },
     );

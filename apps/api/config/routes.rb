@@ -22,6 +22,7 @@ Rails.application.routes.draw do
         resources :subscriptions, only: [ :index, :create ]
         get "playlist", to: "screen_playlists#show"
         post "playlist", to: "screen_playlists#create"
+        patch "playlist", to: "screen_playlists#replace"
         patch "playlist/reorder", to: "screen_playlists#reorder"
         patch "playlist/:submission_id", to: "screen_playlists#update"
         delete "playlist/:submission_id", to: "screen_playlists#destroy"

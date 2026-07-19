@@ -1,22 +1,25 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { PickedFile } from '../../lib/upload';
 import { mediaPointsQueryKey } from '../media-points/hooks';
 import { broadcastPlaylistChanged } from '../../lib/supabase-realtime';
-import type { LibraryItemViewModel, PlaylistItemViewModel } from './model';
+import {
+  createDraftPlaylistItems,
+  type LibraryItemViewModel,
+  type PlaylistItemViewModel,
+} from './model';
 import { useI18n } from '../../providers/I18nProvider';
 import {
-  addLibraryItems,
   addVideoUrl,
-  deletePlaylistItem,
   loadMediaLibrary,
   loadPlaylistEditor,
-  savePlaylistOrder,
-  uploadPlaylistFiles,
+  savePlaylist,
+  uploadMediaFiles,
 } from './repository';
 
 export const playlistEditorKey = (screenId: number) => ['screen-playlist-editor', screenId] as const;
+export const playlistDraftKey = (screenId: number) => ['screen-playlist-draft', screenId] as const;
 export const mediaLibraryKey = ['media-library'] as const;
 
 export function usePlaylistEditor(screenId: number | null) {
@@ -39,6 +42,38 @@ export function useMediaLibrary() {
   });
 }
 
+export function usePlaylistDraft(screenId: number | null) {
+  return useQuery({
+    queryKey: playlistDraftKey(screenId ?? 0),
+    queryFn: async () => [] as PlaylistItemViewModel[],
+    enabled: Boolean(screenId),
+    staleTime: Infinity,
+  });
+}
+
+export function usePlaylistDraftActions(screenId: number) {
+  const queryClient = useQueryClient();
+
+  const stage = useCallback((items: LibraryItemViewModel[]) => {
+    queryClient.setQueryData<PlaylistItemViewModel[]>(playlistDraftKey(screenId), (current = []) => [
+      ...current,
+      ...createDraftPlaylistItems(items),
+    ]);
+  }, [queryClient, screenId]);
+
+  const remove = useCallback((key: string) => {
+    queryClient.setQueryData<PlaylistItemViewModel[]>(playlistDraftKey(screenId), (current = []) => (
+      current.filter((item) => item.key !== key)
+    ));
+  }, [queryClient, screenId]);
+
+  const clear = useCallback(() => {
+    queryClient.setQueryData<PlaylistItemViewModel[]>(playlistDraftKey(screenId), []);
+  }, [queryClient, screenId]);
+
+  return { stage, remove, clear };
+}
+
 function usePlaylistInvalidation(screenId: number) {
   const queryClient = useQueryClient();
   return () => Promise.all([
@@ -51,53 +86,41 @@ function usePlaylistInvalidation(screenId: number) {
   });
 }
 
-export function useUploadPlaylistFiles(screenId: number) {
-  const invalidate = usePlaylistInvalidation(screenId);
+export function useUploadPlaylistFiles() {
+  const queryClient = useQueryClient();
   const { t } = useI18n();
   const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useMutation({
     mutationFn: ({ files, onProgress }: { files: PickedFile[]; onProgress?: (done: number, total: number) => void }) =>
-      uploadPlaylistFiles(screenId, files, labels, onProgress),
+      uploadMediaFiles(files, labels, onProgress),
     onSuccess: () => {
-      void invalidate().catch((error) => {
-        console.warn('Playlist refresh failed after successful upload', error);
+      void queryClient.invalidateQueries({ queryKey: mediaLibraryKey }).catch((error) => {
+        console.warn('Media library refresh failed after successful upload', error);
       });
     },
   });
 }
 
-export function useAddLibraryItems(screenId: number) {
-  const invalidate = usePlaylistInvalidation(screenId);
+export function useAddVideoUrl() {
+  const queryClient = useQueryClient();
   const { t } = useI18n();
   const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useMutation({
-    mutationFn: (items: LibraryItemViewModel[]) => addLibraryItems(screenId, items, labels),
-    onSuccess: invalidate,
-  });
-}
-
-export function useAddVideoUrl(screenId: number) {
-  const invalidate = usePlaylistInvalidation(screenId);
-  const { t } = useI18n();
-  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
-  return useMutation({
-    mutationFn: ({ url, title }: { url: string; title: string }) => addVideoUrl(screenId, url, title, labels),
-    onSuccess: invalidate,
+    mutationFn: ({ url, title }: { url: string; title: string }) => addVideoUrl(url, title, labels),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: mediaLibraryKey }),
   });
 }
 
 export function useSavePlaylistOrder(screenId: number) {
   const invalidate = usePlaylistInvalidation(screenId);
+  const { t } = useI18n();
+  const labels = useMemo(() => ({ video: t('playlist.mediaVideo'), image: t('playlist.mediaImage'), noOrganization: t('dashboard.unnamedOrganization') }), [t]);
   return useMutation({
-    mutationFn: (items: PlaylistItemViewModel[]) => savePlaylistOrder(screenId, items),
-    onSuccess: invalidate,
-  });
-}
-
-export function useDeletePlaylistItem(screenId: number) {
-  const invalidate = usePlaylistInvalidation(screenId);
-  return useMutation({
-    mutationFn: (submissionId: number) => deletePlaylistItem(screenId, submissionId),
-    onSuccess: invalidate,
+    mutationFn: (items: PlaylistItemViewModel[]) => savePlaylist(screenId, items, labels),
+    onSuccess: () => {
+      void invalidate().catch((error) => {
+        console.warn('Playlist refresh failed after successful save', error);
+      });
+    },
   });
 }

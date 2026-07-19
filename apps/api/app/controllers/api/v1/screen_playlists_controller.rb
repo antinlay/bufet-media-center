@@ -123,6 +123,84 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
     end
   end
 
+  def replace
+    items = params[:items]
+    unless items.is_a?(Array)
+      render json: { message: "items is required" }, status: :unprocessable_entity
+      return
+    end
+
+    entries = items.map do |item|
+      payload = item.respond_to?(:permit) ? item.permit(:submission_id, :submissionId, :content_id, :contentId) : item
+      {
+        submission_id: (payload[:submission_id].presence || payload[:submissionId].presence)&.to_i,
+        content_id: (payload[:content_id].presence || payload[:contentId].presence)&.to_i
+      }
+    end
+
+    if entries.any? { |entry| entry[:submission_id].blank? && entry[:content_id].blank? }
+      render json: { message: "Each item requires submission_id or content_id" }, status: :unprocessable_entity
+      return
+    end
+
+    submission_ids = entries.filter_map { |entry| entry[:submission_id] }
+    if submission_ids.uniq.size != submission_ids.size
+      render json: { message: "Duplicate submission_id" }, status: :unprocessable_entity
+      return
+    end
+
+    submissions_by_id = @playlist_feed.submissions.where(id: submission_ids).includes(:content).index_by(&:id)
+    if submissions_by_id.size != submission_ids.size
+      render json: { message: "One or more submissions not found" }, status: :not_found
+      return
+    end
+
+    pending_content_ids = entries.filter_map { |entry| entry[:content_id] unless entry[:submission_id] }.uniq
+    contents_by_id = policy_scope(Content).where(id: pending_content_ids).index_by(&:id)
+    if contents_by_id.size != pending_content_ids.size
+      render json: { message: "One or more content items not found" }, status: :not_found
+      return
+    end
+    unless contents_by_id.values.all? { |content| content.is_a?(Graphic) || content.is_a?(Video) }
+      render json: { message: "Only Graphic or Video content can be added" }, status: :unprocessable_entity
+      return
+    end
+
+    saved_submissions = []
+    Submission.transaction do
+      saved_submissions = entries.map do |entry|
+        if entry[:submission_id]
+          submission = submissions_by_id.fetch(entry[:submission_id])
+          if entry[:content_id] && submission.content_id != entry[:content_id]
+            raise ActiveRecord::RecordInvalid.new(submission)
+          end
+          submission
+        else
+          @playlist_feed.submissions.create!(content: contents_by_id.fetch(entry[:content_id]))
+        end
+      end
+
+      removed_submissions = @playlist_feed.submissions.where.not(id: saved_submissions.map(&:id)).includes(:content).to_a
+      orphan_candidates = removed_submissions.filter_map(&:content).uniq
+      removed_submissions.each(&:destroy!)
+      saved_submissions.each_with_index do |submission, position|
+        submission.update!(position: position)
+      end
+      orphan_candidates.each do |content|
+        content.destroy! unless content.submissions.exists?
+      end
+    end
+
+    sync_supabase!
+    render json: {
+      screenId: @screen.id,
+      feedId: @playlist_feed.id,
+      items: saved_submissions.map { |submission| serialize_playlist_item(submission) }
+    }
+  rescue ActiveRecord::RecordInvalid
+    render json: { message: "Playlist items are invalid" }, status: :unprocessable_entity
+  end
+
   def reorder
     ids = params[:submission_ids].presence || params[:submissionIds].presence
     unless ids.is_a?(Array)

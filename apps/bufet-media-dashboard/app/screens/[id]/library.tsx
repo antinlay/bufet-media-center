@@ -6,8 +6,8 @@ import { ActivityIndicator, Text } from 'react-native-paper';
 
 import { GalleryShell } from '../../../features/media-points/GalleryShell';
 import {
-  useAddLibraryItems,
   useMediaLibrary,
+  usePlaylistDraftActions,
   usePlaylistEditor,
 } from '../../../features/screen-playlist/hooks';
 import { MediaThumbnail } from '../../../features/screen-playlist/MediaThumbnail';
@@ -29,7 +29,7 @@ export default function PlaylistLibraryScreen() {
   const screenId = params.id ? Number(params.id) : null;
   const editorQuery = usePlaylistEditor(screenId);
   const libraryQuery = useMediaLibrary();
-  const addMutation = useAddLibraryItems(screenId ?? 0);
+  const draftActions = usePlaylistDraftActions(screenId ?? 0);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -70,10 +70,8 @@ export default function PlaylistLibraryScreen() {
   const addSelected = () => {
     if (!screenId || !selectedItems.length) return;
     setError(null);
-    addMutation.mutate(selectedItems, {
-      onSuccess: () => router.back(),
-      onError: () => setError(t('mediaLibrary.addError')),
-    });
+    draftActions.stage(selectedItems);
+    router.back();
   };
 
   const subtitle = editorQuery.data
@@ -167,19 +165,15 @@ export default function PlaylistLibraryScreen() {
           <Text style={styles.selectionText}>{t('mediaLibrary.selectedCount', { selected: selectedIds.length, max: MAX_MEDIA_PICK_COUNT })}</Text>
           <Pressable
             accessibilityRole="button"
-            disabled={!selectedItems.length || addMutation.isPending}
+            disabled={!selectedItems.length}
             onPress={addSelected}
             style={({ pressed }) => [
               styles.addButton,
-              (!selectedItems.length || addMutation.isPending) && styles.addButtonDisabled,
+              !selectedItems.length && styles.addButtonDisabled,
               pressed && styles.pressed,
             ]}
           >
-            {addMutation.isPending ? (
-              <ActivityIndicator color={colors.onAccent} size="small" />
-            ) : (
-              <Text style={styles.addText}>{t('mediaLibrary.addSelected')}</Text>
-            )}
+            <Text style={styles.addText}>{t('mediaLibrary.addSelected')}</Text>
           </Pressable>
         </View>
       </View>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -7,7 +7,8 @@ import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatli
 
 import { GalleryShell } from '../../features/media-points/GalleryShell';
 import {
-  useDeletePlaylistItem,
+  usePlaylistDraft,
+  usePlaylistDraftActions,
   usePlaylistEditor,
   useSavePlaylistOrder,
   useUploadPlaylistFiles,
@@ -28,21 +29,19 @@ function normalizeOrder(items: PlaylistItemViewModel[]) {
 
 function mergeServerItems(current: PlaylistItemViewModel[], server: PlaylistItemViewModel[]) {
   const serverById = new Map(server.map((item) => [item.submissionId, item]));
-  const currentIds = new Set(current.map((item) => item.submissionId));
+  const currentIds = new Set(current.flatMap((item) => item.submissionId === null ? [] : [item.submissionId]));
   const kept = current.flatMap((item) => {
+    if (item.submissionId === null) return [item];
     const updated = serverById.get(item.submissionId);
     return updated ? [{ ...updated, position: item.position }] : [];
   });
-  const added = server.filter((item) => !currentIds.has(item.submissionId));
+  const added = server.filter((item) => item.submissionId !== null && !currentIds.has(item.submissionId));
   return normalizeOrder([...kept, ...added]);
 }
 
 function mergeUploadedItems(current: PlaylistItemViewModel[], uploaded: PlaylistItemViewModel[]) {
-  const uploadedById = new Map(uploaded.map((item) => [item.submissionId, item]));
-  const currentIds = new Set(current.map((item) => item.submissionId));
-  const updated = current.map((item) => uploadedById.get(item.submissionId) ?? item);
-  const added = uploaded.filter((item) => !currentIds.has(item.submissionId));
-  return normalizeOrder([...updated, ...added]);
+  const currentKeys = new Set(current.map((item) => item.key));
+  return normalizeOrder([...current, ...uploaded.filter((item) => !currentKeys.has(item.key))]);
 }
 
 export default function PlaylistEditorScreen() {
@@ -51,14 +50,15 @@ export default function PlaylistEditorScreen() {
   const params = useLocalSearchParams<ScreenParams>();
   const screenId = params.id ? Number(params.id) : null;
   const editorQuery = usePlaylistEditor(screenId);
-  const uploadMutation = useUploadPlaylistFiles(screenId ?? 0);
+  const draftQuery = usePlaylistDraft(screenId);
+  const draftActions = usePlaylistDraftActions(screenId ?? 0);
+  const uploadMutation = useUploadPlaylistFiles();
   const saveMutation = useSavePlaylistOrder(screenId ?? 0);
-  const deleteMutation = useDeletePlaylistItem(screenId ?? 0);
   const [items, setItems] = useState<PlaylistItemViewModel[]>([]);
   const [dirty, setDirty] = useState(false);
   const dirtyRef = useRef(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [itemMenuId, setItemMenuId] = useState<number | null>(null);
+  const [itemMenuId, setItemMenuId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
@@ -67,10 +67,16 @@ export default function PlaylistEditorScreen() {
   const { t } = useI18n();
   const styles = createStyles(colors, radius.lg, radius.xl);
   const addMenuItemTheme = { colors: { onSurface: colors.textPrimary, onSurfaceVariant: colors.textPrimary } };
+  const draftItems = draftQuery.data;
+  const displayedItems = useMemo(
+    () => mergeUploadedItems(items, draftItems ?? []),
+    [draftItems, items],
+  );
+  const hasUnsavedChanges = dirty || Boolean(draftItems?.length);
 
   useEffect(() => {
-    dirtyRef.current = dirty;
-  }, [dirty]);
+    dirtyRef.current = hasUnsavedChanges;
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (addMenuOpen || !pendingRouteRef.current) return;
@@ -87,11 +93,14 @@ export default function PlaylistEditorScreen() {
   }, [editorQuery.data?.items]);
 
   const goBack = () => {
-    if (!dirty) {
+    if (!hasUnsavedChanges) {
       router.back();
       return;
     }
-    const leave = () => router.back();
+    const leave = () => {
+      draftActions.clear();
+      router.back();
+    };
     if (Platform.OS === 'web') {
       if (window.confirm(t('playlist.unsavedMessage'))) leave();
       return;
@@ -116,7 +125,8 @@ export default function PlaylistEditorScreen() {
         },
         {
           onSuccess: (added) => {
-            setItems((current) => mergeUploadedItems(current, added));
+            draftActions.stage(added);
+            setSuccess(null);
           },
           onError: (mutationError) => {
             setError(t('playlist.uploadFilesError'));
@@ -130,12 +140,14 @@ export default function PlaylistEditorScreen() {
   };
 
   const save = () => {
-    if (!screenId || !items.length || !dirty) return;
+    if (!screenId || !hasUnsavedChanges) return;
     setError(null);
     setSuccess(null);
-    saveMutation.mutate(items, {
-      onSuccess: () => {
-        setItems((current) => normalizeOrder(current));
+    saveMutation.mutate(displayedItems, {
+      onSuccess: (savedItems) => {
+        draftActions.clear();
+        dirtyRef.current = false;
+        setItems(normalizeOrder(savedItems));
         setDirty(false);
         setSuccess(t('playlist.saved'));
       },
@@ -147,15 +159,12 @@ export default function PlaylistEditorScreen() {
 
   const requestDelete = (item: PlaylistItemViewModel) => {
     setItemMenuId(null);
-    const remove = () => deleteMutation.mutate(item.submissionId, {
-      onSuccess: () => {
-        setItems((current) => normalizeOrder(current.filter((candidate) => candidate.submissionId !== item.submissionId)));
-        setDirty(true);
-      },
-      onError: (mutationError) => {
-        setError(t('playlist.deleteError'));
-      },
-    });
+    const remove = () => {
+      setItems((current) => normalizeOrder(current.filter((candidate) => candidate.key !== item.key)));
+      if (item.submissionId === null) draftActions.remove(item.key);
+      setDirty(true);
+      setSuccess(null);
+    };
     if (Platform.OS === 'web') {
       if (window.confirm(t('playlist.removeConfirm', { name: item.title }))) remove();
       return;
@@ -248,7 +257,7 @@ export default function PlaylistEditorScreen() {
     >
       <View style={styles.editor}>
         {error ? <MessageBanner text={error} danger /> : null}
-        {success ? <MessageBanner text={success} /> : null}
+        {success && !hasUnsavedChanges ? <MessageBanner text={success} /> : null}
         {uploadProgress ? (
           <View style={styles.progressBanner}>
             <ActivityIndicator color={colors.accent} size="small" />
@@ -259,12 +268,12 @@ export default function PlaylistEditorScreen() {
         ) : null}
 
         <DraggableFlatList
-          data={items}
-          keyExtractor={(item) => String(item.submissionId)}
+          data={displayedItems}
+          keyExtractor={(item) => item.key}
           activationDistance={8}
           autoscrollThreshold={72}
           containerStyle={styles.list}
-          contentContainerStyle={items.length ? styles.listContent : styles.emptyListContent}
+          contentContainerStyle={displayedItems.length ? styles.listContent : styles.emptyListContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="playlist-plus" color={colors.accent} size={38} />
@@ -297,14 +306,14 @@ export default function PlaylistEditorScreen() {
                   <MaterialCommunityIcons name="drag-vertical" color={colors.textMuted} size={25} />
                 </Pressable>
                 <Menu
-                  visible={itemMenuId === item.submissionId}
+                  visible={itemMenuId === item.key}
                   onDismiss={() => setItemMenuId(null)}
                   contentStyle={styles.itemMenu}
                   anchor={
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t('playlist.actionsA11y', { name: item.title })}
-                      onPress={() => setItemMenuId(item.submissionId)}
+                      onPress={() => setItemMenuId(item.key)}
                       style={({ pressed }) => [styles.rowAction, pressed && styles.pressed]}
                     >
                       <MaterialCommunityIcons name="dots-vertical" color={colors.textPrimary} size={23} />
@@ -325,11 +334,11 @@ export default function PlaylistEditorScreen() {
         <View style={styles.footer}>
           <Pressable
             accessibilityRole="button"
-            disabled={!items.length || !dirty || saveMutation.isPending}
+            disabled={!hasUnsavedChanges || saveMutation.isPending}
             onPress={save}
             style={({ pressed }) => [
               styles.saveButton,
-              (!items.length || !dirty || saveMutation.isPending) && styles.saveButtonDisabled,
+              (!hasUnsavedChanges || saveMutation.isPending) && styles.saveButtonDisabled,
               pressed && styles.pressed,
             ]}
           >

@@ -22,6 +22,7 @@ class Api::V1::ContentsController < Api::V1::BaseController
     authorize content
 
     attach_graphic_image(content)
+    attach_video_file(content)
     assign_feed_ids(content)
 
     if @feed_assignment_error
@@ -31,6 +32,16 @@ class Api::V1::ContentsController < Api::V1::BaseController
 
     if @image_attach_error
       render json: { message: "Invalid image upload" }, status: :unprocessable_entity
+      return
+    end
+
+    if @video_attach_error
+      render json: { message: "Invalid video upload" }, status: :unprocessable_entity
+      return
+    end
+
+    if @video_attach_oversize
+      render json: { message: "Video is too large (max 100MB)" }, status: :payload_too_large
       return
     end
 
@@ -111,10 +122,11 @@ class Api::V1::ContentsController < Api::V1::BaseController
       :url,
       :format,
       :image,
+      :video,
       feed_ids: []
     )
 
-    attrs = permitted.to_h.except("image", "feed_ids")
+    attrs = permitted.to_h.except("image", "video", "feed_ids")
 
     case content_class.name
     when "Graphic"
@@ -141,6 +153,27 @@ class Api::V1::ContentsController < Api::V1::BaseController
     content.image.attach(image)
   rescue ActiveSupport::MessageVerifier::InvalidSignature
     @image_attach_error = true
+  end
+
+  def attach_video_file(content)
+    return unless content.is_a?(Video)
+
+    video = content_payload[:video]
+    return unless video.present?
+
+    if video.respond_to?(:content_type) && video.content_type.present? && !video.content_type.start_with?("video/")
+      @video_attach_error = true
+      return
+    end
+
+    if video.respond_to?(:size) && video.size.to_i > Video::MAX_FILE_SIZE
+      @video_attach_oversize = true
+      return
+    end
+
+    content.file.attach(video)
+  rescue ActiveSupport::MessageVerifier::InvalidSignature
+    @video_attach_error = true
   end
 
   def assign_feed_ids(content)

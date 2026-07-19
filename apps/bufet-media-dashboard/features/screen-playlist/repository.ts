@@ -29,56 +29,49 @@ export async function loadMediaLibrary(labels: PlaylistLabels, signal?: AbortSig
   });
 }
 
-export async function uploadPlaylistFiles(
-  screenId: number,
+export async function uploadMediaFiles(
   files: PickedFile[],
   labels: PlaylistLabels,
   onProgress?: (completed: number, total: number) => void,
-): Promise<PlaylistItemViewModel[]> {
-  const uploaded: PlaylistItemViewModel[] = [];
+): Promise<LibraryItemViewModel[]> {
+  const uploaded: LibraryItemViewModel[] = [];
   for (const [index, file] of files.entries()) {
     const type = mediaTypeForFile(file);
     if (!type) throw new Error('UNSUPPORTED_FILE_TYPE');
     if (type === 'Video' && file.size && file.size > MAX_VIDEO_BYTES) {
       throw new Error('VIDEO_FILE_TOO_LARGE');
     }
-    const item = await apiClient.createScreenPlaylistItem(
-      screenId,
+    const content = await apiClient.createContent(
       { type, name: fileTitle(file), duration: type === 'Graphic' ? 15 : undefined },
       file,
     );
-    uploaded.push(mapPlaylistItem(item, labels));
+    const item = mapLibraryItem(content, labels);
+    if (!item) throw new Error('UNSUPPORTED_CONTENT_TYPE');
+    uploaded.push(item);
     onProgress?.(index + 1, files.length);
   }
   return uploaded;
 }
 
-export async function addLibraryItems(screenId: number, items: LibraryItemViewModel[], labels: PlaylistLabels) {
-  const added: PlaylistItemViewModel[] = [];
-  for (const item of items) {
-    const result = await apiClient.addContentToScreenPlaylist(
-      screenId,
-      item.id,
-      item.type === 'Graphic' ? item.duration ?? 15 : undefined,
-    );
-    added.push(mapPlaylistItem(result, labels));
-  }
-  return added;
-}
-
-export async function addVideoUrl(screenId: number, url: string, title: string, labels: PlaylistLabels) {
-  const item = await apiClient.createScreenPlaylistItem(screenId, {
+export async function addVideoUrl(url: string, title: string, labels: PlaylistLabels) {
+  const content = await apiClient.createContent({
     type: 'Video',
     url: url.trim(),
     name: title.trim() || undefined,
   });
-  return mapPlaylistItem(item, labels);
+  const item = mapLibraryItem(content, labels);
+  if (!item) throw new Error('UNSUPPORTED_CONTENT_TYPE');
+  return item;
 }
 
-export function savePlaylistOrder(screenId: number, items: PlaylistItemViewModel[]) {
-  return apiClient.reorderScreenPlaylist(screenId, items.map((item) => item.submissionId));
-}
-
-export function deletePlaylistItem(screenId: number, submissionId: number) {
-  return apiClient.deleteScreenPlaylistItem(screenId, submissionId);
+export async function savePlaylist(
+  screenId: number,
+  items: PlaylistItemViewModel[],
+  labels: PlaylistLabels,
+) {
+  const playlist = await apiClient.replaceScreenPlaylist(screenId, items.map((item) => ({
+    submission_id: item.submissionId,
+    content_id: item.contentId,
+  })));
+  return playlist.items.map((item) => mapPlaylistItem(item, labels));
 }

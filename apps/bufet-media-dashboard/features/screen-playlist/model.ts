@@ -6,7 +6,8 @@ import type { PickedFile } from '../../lib/upload';
 export type PlaylistMediaType = 'Graphic' | 'Video';
 
 export interface PlaylistItemViewModel {
-  submissionId: number;
+  key: string;
+  submissionId: number | null;
   contentId: number;
   type: PlaylistMediaType;
   title: string;
@@ -53,6 +54,7 @@ export function resolveMediaUrl(url?: string | null) {
 export function mapPlaylistItem(item: ConcertoPlaylistItem, labels: PlaylistLabels): PlaylistItemViewModel {
   const type: PlaylistMediaType = item.type === 'Video' ? 'Video' : 'Graphic';
   return {
+    key: `submission-${item.submissionId}`,
     submissionId: item.submissionId,
     contentId: item.contentId,
     type,
@@ -62,6 +64,22 @@ export function mapPlaylistItem(item: ConcertoPlaylistItem, labels: PlaylistLabe
     mediaUrl: resolveMediaUrl(item.mediaUrl),
     thumbnailUrl: resolveMediaUrl(item.thumbnailUrl ?? (type === 'Graphic' ? item.mediaUrl : null)),
   };
+}
+
+let draftSequence = 0;
+
+export function createDraftPlaylistItems(items: LibraryItemViewModel[]): PlaylistItemViewModel[] {
+  return items.map((item) => ({
+    key: `draft-${Date.now()}-${draftSequence++}`,
+    submissionId: null,
+    contentId: item.id,
+    type: item.type,
+    title: item.title,
+    duration: item.duration,
+    position: 0,
+    mediaUrl: item.mediaUrl,
+    thumbnailUrl: item.thumbnailUrl,
+  }));
 }
 
 export function mapPlaylistEditor(
