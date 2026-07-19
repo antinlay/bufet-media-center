@@ -1,7 +1,9 @@
 #!/bin/bash -e
 
-# If running the rails server then create or migrate existing database
-if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
+# If running the Rails server then create or migrate the existing database.
+# Render starts the container through `/bin/sh -c`, so the Rails arguments can
+# be inside one command string instead of being the final two entrypoint args.
+if [[ " $* " == *" ./bin/rails server "* ]] || [[ " $* " == *" ./bin/rails server"* ]]; then
   if [ -z "${SECRET_KEY_BASE}" ]; then
     echo "ERROR: Missing SECRET_KEY_BASE for production startup. Set it in the API service variables."
     exit 1
