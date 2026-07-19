@@ -431,6 +431,14 @@ export class ApiClient {
     return handleResponse<ConcertoContent[]>(res);
   }
 
+  async getContent(id: number, signal?: AbortSignal): Promise<ConcertoContent> {
+    const res = await request(`/api/v1/contents/${id}`, {
+      headers: this.headers(false),
+      signal,
+    });
+    return handleResponse<ConcertoContent>(res);
+  }
+
   async createContent(payload: {
     type: string;
     name?: string;

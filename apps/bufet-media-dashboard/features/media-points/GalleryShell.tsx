@@ -17,6 +17,7 @@ interface GalleryShellProps {
   toolbarActions?: ReactNode;
   showBack?: boolean;
   showAccount?: boolean;
+  showPreferences?: boolean;
   scrollable?: boolean;
   onBackPress?: () => void;
   bottomNavigation?: ReactNode;
@@ -29,6 +30,7 @@ export function GalleryShell({
   toolbarActions,
   showBack = false,
   showAccount = false,
+  showPreferences = false,
   scrollable = true,
   onBackPress,
   bottomNavigation,
@@ -40,6 +42,7 @@ export function GalleryShell({
   const { colors, radius } = useAppTheme();
   const { t } = useI18n();
   const styles = createStyles(colors, radius.md);
+  const hasToolbarActions = Boolean(toolbarActions) || showPreferences;
 
   const goBack = () => {
     if (onBackPress) {
@@ -57,8 +60,8 @@ export function GalleryShell({
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.page}>
         <View style={styles.toolbarFrame}>
-          <View style={[styles.toolbar, isMobile && styles.toolbarMobile, isMobile && showBack && styles.toolbarMobileSingleRow]}>
-            <View style={[styles.toolbarIdentity, isMobile && styles.toolbarIdentityMobile, isMobile && showBack && styles.toolbarIdentitySingleRow]}>
+          <View style={[styles.toolbar, isMobile && styles.toolbarMobile, isMobile && (showBack || showPreferences) && styles.toolbarMobileSingleRow]}>
+            <View style={[styles.toolbarIdentity, isMobile && styles.toolbarIdentityMobile, isMobile && (showBack || showPreferences) && styles.toolbarIdentitySingleRow]}>
               {showBack ? (
                 <IconButton
                   icon="chevron-left"
@@ -74,15 +77,17 @@ export function GalleryShell({
               )}
               {!(isMobile && showBack) ? (
                 <View style={styles.brandCopy}>
-                  <Text style={styles.brandTitle}>{title ?? t('brand.name')}</Text>
+                  <Text numberOfLines={1} style={styles.brandTitle}>{title ?? t('brand.name')}</Text>
                   {title ? null : <Text style={styles.brandSubtitle}>{t('brand.tagline')}</Text>}
                 </View>
               ) : null}
             </View>
-            <View style={[styles.toolbarActions, isMobile && styles.toolbarActionsMobile, isMobile && showBack && styles.toolbarActionsSingleRow]}>
-              {toolbarActions}
-              <PreferenceControls compact={width < 760} />
-            </View>
+            {hasToolbarActions ? (
+              <View style={[styles.toolbarActions, isMobile && styles.toolbarActionsMobile, isMobile && (showBack || showPreferences) && styles.toolbarActionsSingleRow]}>
+                {toolbarActions}
+                {showPreferences ? <PreferenceControls compact={width < 760} /> : null}
+              </View>
+            ) : null}
           </View>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>

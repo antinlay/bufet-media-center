@@ -6,7 +6,7 @@ class SubmissionPolicy < ApplicationPolicy
 
       visible_feed_ids = FeedPolicy::Scope.new(user, Feed.all).resolve.select(:id)
       visible_content_ids = ContentPolicy::Scope.new(user, Content.all).resolve.select(:id)
-      scope.where(feed_id: visible_feed_ids).or(scope.where(content_id: visible_content_ids)).distinct
+      scope.where(feed_id: visible_feed_ids).or(scope.where(content_id: visible_content_ids))
     end
   end
 

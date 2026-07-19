@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { PreferenceControls } from '@/components/preference-controls';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/providers/AppThemeProvider';
 import { useI18n } from '@/providers/I18nProvider';
 import type { AppColors } from '@/theme';
@@ -22,68 +22,70 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
   const styles = createStyles(theme.colors, theme.radius.xl);
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      style={styles.scroll}
-      contentContainerStyle={styles.page}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerBrand}>
-          <View style={styles.logoMark}>
-            <MaterialCommunityIcons name="monitor-dashboard" color={theme.colors.accent} size={24} />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        style={styles.scroll}
+        contentContainerStyle={styles.page}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerBrand}>
+            <View style={styles.logoMark}>
+              <MaterialCommunityIcons name="monitor-dashboard" color={theme.colors.accent} size={24} />
+            </View>
+            {width >= 520 ? (
+              <View>
+                <Text style={styles.headerBrandName}>{t('brand.name')}</Text>
+                <Text style={styles.headerTagline}>{t('brand.tagline')}</Text>
+              </View>
+            ) : null}
           </View>
-          {width >= 520 ? (
-            <View>
-              <Text style={styles.headerBrandName}>{t('brand.name')}</Text>
-              <Text style={styles.headerTagline}>{t('brand.tagline')}</Text>
-            </View>
-          ) : null}
         </View>
-        <PreferenceControls compact={width < 520} />
-      </View>
 
-      <View style={[styles.main, !isDesktop && styles.mainMobile]}>
-        <View style={[styles.hero, !isDesktop && styles.heroMobile]}>
-          <Text style={styles.heroName}>{t('brand.name')}</Text>
-          <Text style={styles.heroTagline}>{t('brand.tagline')}</Text>
-          <Text style={styles.heroDescription}>{t('brand.description')}</Text>
-          {isDesktop ? (
-            <View style={styles.featureList}>
-              {featureKeys.map(([titleKey, subtitleKey], index) => (
-                <View key={titleKey} style={styles.featureRow}>
-                  <View style={styles.featureIcon}>
-                    <MaterialCommunityIcons name={featureIcons[index]} color={theme.colors.accent} size={23} />
+        <View style={[styles.main, !isDesktop && styles.mainMobile]}>
+          <View style={[styles.hero, !isDesktop && styles.heroMobile]}>
+            <Text style={styles.heroName}>{t('brand.name')}</Text>
+            <Text style={styles.heroTagline}>{t('brand.tagline')}</Text>
+            <Text style={styles.heroDescription}>{t('brand.description')}</Text>
+            {isDesktop ? (
+              <View style={styles.featureList}>
+                {featureKeys.map(([titleKey, subtitleKey], index) => (
+                  <View key={titleKey} style={styles.featureRow}>
+                    <View style={styles.featureIcon}>
+                      <MaterialCommunityIcons name={featureIcons[index]} color={theme.colors.accent} size={23} />
+                    </View>
+                    <View style={styles.featureCopy}>
+                      <Text style={styles.featureTitle}>{t(titleKey)}</Text>
+                      <Text style={styles.featureSubtitle}>{t(subtitleKey)}</Text>
+                    </View>
                   </View>
-                  <View style={styles.featureCopy}>
-                    <Text style={styles.featureTitle}>{t(titleKey)}</Text>
-                    <Text style={styles.featureSubtitle}>{t(subtitleKey)}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : null}
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          <View style={[styles.card, !isDesktop && styles.cardMobile]}>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
+            <View style={styles.form}>{children}</View>
+          </View>
         </View>
 
-        <View style={[styles.card, !isDesktop && styles.cardMobile]}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-          <View style={styles.form}>{children}</View>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>{t('auth.footer.copyright', { year: new Date().getFullYear() })}</Text>
+          <View style={styles.footerLinks}>
+            <Text style={styles.footerLink}>{t('auth.footer.privacy')}</Text>
+            <Text style={styles.footerLink}>{t('auth.footer.terms')}</Text>
+          </View>
         </View>
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>{t('auth.footer.copyright', { year: new Date().getFullYear() })}</Text>
-        <View style={styles.footerLinks}>
-          <Text style={styles.footerLink}>{t('auth.footer.privacy')}</Text>
-          <Text style={styles.footerLink}>{t('auth.footer.terms')}</Text>
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const createStyles = (colors: AppColors, cardRadius: number) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1, backgroundColor: colors.background },
   page: { minHeight: '100%', width: '100%', maxWidth: 1440, alignSelf: 'center', padding: 28, gap: 34 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },

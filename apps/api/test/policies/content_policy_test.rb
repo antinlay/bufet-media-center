@@ -15,6 +15,13 @@ class ContentPolicyTest < ActiveSupport::TestCase
     assert_includes ContentPolicy::Scope.new(@content_owner, Content.all).resolve, @content
   end
 
+  test "scope does not compare the full json-backed content row with distinct" do
+    sql = ContentPolicy::Scope.new(@content_owner, Content.all).resolve.to_sql
+
+    refute_includes sql, 'SELECT DISTINCT "contents".*'
+    assert_includes sql, 'SELECT DISTINCT "contents"."id"'
+  end
+
   test "index? remains public for the legacy interface" do
     assert ContentPolicy.new(nil, Content).index?
     assert ContentPolicy.new(@non_member, Content).index?

@@ -44,7 +44,7 @@ export default function PlaylistsScreen() {
               <Menu.Item leadingIcon="pencil-outline" title={t('common.edit')} onPress={() => { setMenuScreenId(null); router.push(`/screens/${item.screenId}`); }} />
             </Menu>
           </View>
-          {item.previews.length ? <View style={styles.previews}>{item.previews.map((preview) => <MediaThumbnail key={preview.key} uri={preview.thumbnailUrl} type={preview.type} style={styles.preview} />)}</View> : <View style={styles.emptyPreview}><MaterialCommunityIcons name="playlist-remove" color={colors.textMuted} size={28} /><Text style={styles.stateText}>{t('playlists.emptyPlaylist')}</Text></View>}
+          {item.previews.length ? <View style={styles.previews}>{item.previews.map((preview) => <MediaThumbnail key={preview.key} uri={preview.thumbnailUrl} mediaUri={preview.mediaUrl} type={preview.type} style={styles.preview} />)}</View> : <View style={styles.emptyPreview}><MaterialCommunityIcons name="playlist-remove" color={colors.textMuted} size={28} /><Text style={styles.stateText}>{t('playlists.emptyPlaylist')}</Text></View>}
         </Pressable>
       )) : <View style={styles.state}><MaterialCommunityIcons name="playlist-remove" color={colors.textMuted} size={38} /><Text style={styles.stateText}>{t('playlists.empty')}</Text></View>}
     </MainTabScreen>

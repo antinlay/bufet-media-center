@@ -8,9 +8,10 @@ class ContentPolicy < ApplicationPolicy
       shared_content_ids = scope
         .joins(submissions: :feed)
         .where(feeds: { group_id: visible_group_ids })
+        .distinct
         .select(:id)
 
-      scope.where(user_id: user.id).or(scope.where(id: shared_content_ids)).distinct
+      scope.where(user_id: user.id).or(scope.where(id: shared_content_ids))
     end
   end
 

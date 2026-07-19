@@ -317,7 +317,7 @@ export default function PlaylistEditorScreen() {
           renderItem={({ item, drag, isActive }) => (
             <ScaleDecorator>
               <View style={[styles.playlistRow, isActive && styles.playlistRowActive]}>
-                <MediaThumbnail uri={item.thumbnailUrl} type={item.type} style={styles.thumbnail} />
+                <MediaThumbnail uri={item.thumbnailUrl} mediaUri={item.mediaUrl} type={item.type} style={styles.thumbnail} />
                 <View style={styles.itemCopy}>
                   <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
                   <Text style={styles.itemMeta}>

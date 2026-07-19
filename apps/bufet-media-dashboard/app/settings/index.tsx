@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { Text } from 'react-native-paper';
 
 import { MainTabScreen } from '../../components/main-tab-screen';
@@ -8,41 +7,17 @@ import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppTheme } from '../../providers/AppThemeProvider';
 import { useI18n } from '../../providers/I18nProvider';
-import type { TranslationKey } from '../../locales/ru';
 import { brandFonts, type AppColors } from '../../theme';
-
-type SettingRow = {
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  title: TranslationKey;
-  subtitle: TranslationKey;
-  action?: 'organizations' | 'theme' | 'language';
-};
-
-const rows: readonly SettingRow[] = [
-  { icon: 'account-outline', title: 'settings.profile', subtitle: 'settings.profileSubtitle' },
-  { icon: 'office-building-outline', title: 'settings.organizations', subtitle: 'settings.organizationsSubtitle', action: 'organizations' },
-  { icon: 'bell-outline', title: 'settings.notifications', subtitle: 'settings.notificationsSubtitle' },
-  { icon: 'theme-light-dark', title: 'settings.appearance', subtitle: 'settings.appearanceSubtitle', action: 'theme' },
-  { icon: 'connection', title: 'settings.integrations', subtitle: 'settings.integrationsSubtitle' },
-  { icon: 'translate', title: 'settings.language', subtitle: 'settings.languageSubtitle', action: 'language' },
-];
 
 export default function SettingsScreen() {
   useProtectedRoute();
-  const router = useRouter();
   const { user, logout } = useAuth();
-  const { colors, radius, scheme, toggleScheme } = useAppTheme();
-  const { language, setLanguage, t } = useI18n();
+  const { colors, radius } = useAppTheme();
+  const { t } = useI18n();
   const styles = createStyles(colors, radius.lg, radius.pill);
 
-  const runAction = (action?: SettingRow['action']) => {
-    if (action === 'organizations') router.push('/groups');
-    if (action === 'theme') toggleScheme();
-    if (action === 'language') setLanguage(language === 'ru' ? 'en' : 'ru');
-  };
-
   return (
-    <MainTabScreen title={t('settings.title')}>
+    <MainTabScreen title={t('settings.title')} showPreferences>
       <View style={styles.profileCard}>
         <View style={styles.avatar}><MaterialCommunityIcons name="account" color={colors.accent} size={28} /></View>
         <View style={styles.profileCopy}>
@@ -52,24 +27,6 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.list}>
-        {rows.map((row) => (
-          <Pressable
-            key={row.title}
-            accessibilityRole={row.action ? 'button' : undefined}
-            disabled={!row.action}
-            onPress={() => runAction(row.action)}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          >
-            <View style={styles.icon}><MaterialCommunityIcons name={row.icon} color={colors.accent} size={22} /></View>
-            <View style={styles.copy}>
-              <Text style={styles.title}>{t(row.title)}</Text>
-              <Text style={styles.subtitle}>{t(row.subtitle)}</Text>
-            </View>
-            {row.action === 'theme' ? <Text style={styles.value}>{t(scheme === 'dark' ? 'theme.dark' : 'theme.light')}</Text> : null}
-            {row.action === 'language' ? <Text style={styles.value}>{language.toUpperCase()}</Text> : null}
-            {row.action ? <MaterialCommunityIcons name="chevron-right" color={colors.textMuted} size={22} /> : null}
-          </Pressable>
-        ))}
         <Pressable accessibilityRole="button" onPress={logout} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
           <View style={[styles.icon, styles.logoutIcon]}><MaterialCommunityIcons name="logout" color={colors.danger} size={22} /></View>
           <View style={styles.copy}><Text style={styles.logout}>{t('settings.logout')}</Text><Text style={styles.subtitle}>{t('settings.logoutSubtitle')}</Text></View>
@@ -91,9 +48,7 @@ const createStyles = (colors: AppColors, radiusLg: number, radiusPill: number) =
   icon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentMuted },
   logoutIcon: { backgroundColor: colors.dangerMuted },
   copy: { minWidth: 0, flex: 1, gap: 3 },
-  title: { color: colors.textPrimary, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
   subtitle: { color: colors.textMuted, fontFamily: brandFonts.body, fontSize: 11 },
-  value: { color: colors.textSecondary, fontFamily: brandFonts.bodyEmphasis, fontSize: 11 },
   logout: { color: colors.danger, fontFamily: brandFonts.bodyEmphasis, fontSize: 14 },
   pressed: { opacity: 0.72, backgroundColor: colors.surfaceMuted },
 });

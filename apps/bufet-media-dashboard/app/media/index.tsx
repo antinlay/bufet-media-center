@@ -81,7 +81,7 @@ function MediaCard({ item, compact }: { item: LibraryItemViewModel; compact: boo
   const styles = createStyles(colors, radius.lg, radius.pill, compact);
   return (
     <View style={styles.card}>
-      <MediaThumbnail uri={item.thumbnailUrl} type={item.type} style={styles.thumbnail} />
+      <MediaThumbnail uri={item.thumbnailUrl} mediaUri={item.mediaUrl} type={item.type} style={styles.thumbnail} />
       <View style={styles.cardCopy}>
         <Text numberOfLines={1} style={styles.cardTitle}>{item.title}</Text>
         <Text style={styles.cardMeta}>{t(item.type === 'Graphic' ? 'media.image' : 'media.video')} · {formatDuration(item.duration) ?? '—'}</Text>

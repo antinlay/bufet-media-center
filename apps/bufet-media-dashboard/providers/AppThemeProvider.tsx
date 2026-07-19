@@ -36,6 +36,22 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     [scheme, setScheme, toggleScheme],
   );
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    let themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!themeMeta) {
+      themeMeta = document.createElement('meta');
+      themeMeta.name = 'theme-color';
+      document.head.appendChild(themeMeta);
+    }
+
+    themeMeta.content = value.colors.background;
+    document.documentElement.style.backgroundColor = value.colors.background;
+    document.documentElement.style.colorScheme = scheme;
+    document.body.style.backgroundColor = value.colors.background;
+  }, [scheme, value.colors.background]);
+
   return (
     <AppThemeContext.Provider value={value}>
       <PaperProvider theme={value.paper}>{children}</PaperProvider>

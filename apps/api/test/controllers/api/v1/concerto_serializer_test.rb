@@ -14,7 +14,7 @@ class ConcertoSerializerTest < ActiveSupport::TestCase
     submission = submissions(:one)
 
     Supabase::Client.stub(:configured?, true) do
-      Supabase::Client.stub(:get, [{ "storage_path" => "media/graphic/1/original.jpg", "thumbnail_path" => "media/graphic/1/thumbnail.jpg" }]) do
+      Supabase::Client.stub(:get, [ { "storage_path" => "media/graphic/1/original.jpg", "thumbnail_path" => "media/graphic/1/thumbnail.jpg" } ]) do
         Supabase::MediaStore.stub(:signed_url, ->(path) { "https://storage.example/#{path}" }) do
           item = serializer.serialize_playlist_item(submission)
 
@@ -30,7 +30,7 @@ class ConcertoSerializerTest < ActiveSupport::TestCase
     graphic = submissions(:one).content
 
     Supabase::Client.stub(:configured?, true) do
-      Supabase::Client.stub(:get, [{ "storage_path" => "media/graphic/1/original.jpg", "thumbnail_path" => "media/graphic/1/thumbnail.jpg" }]) do
+      Supabase::Client.stub(:get, [ { "storage_path" => "media/graphic/1/original.jpg", "thumbnail_path" => "media/graphic/1/thumbnail.jpg" } ]) do
         Supabase::MediaStore.stub(:signed_url, ->(path) { "https://storage.example/#{path}" }) do
           content = serializer.serialize_content(graphic)
 
@@ -49,6 +49,22 @@ class ConcertoSerializerTest < ActiveSupport::TestCase
 
       assert_match %r{\A/rails/active_storage/blobs/redirect/}, item[:mediaUrl]
       assert_equal item[:mediaUrl], item[:thumbnailUrl]
+    end
+  end
+
+  test "video library entries use persistent Supabase media and poster URLs" do
+    serializer = Serializer.new
+    video = videos(:video_youtube)
+
+    Supabase::Client.stub(:configured?, true) do
+      Supabase::Client.stub(:get, [ { "storage_path" => "media/video/1/original.mp4", "thumbnail_path" => "media/video/1/poster.jpg" } ]) do
+        Supabase::MediaStore.stub(:signed_url, ->(path) { "https://storage.example/#{path}" }) do
+          content = serializer.serialize_content(video)
+
+          assert_equal "https://storage.example/media/video/1/original.mp4", content[:url]
+          assert_equal "https://storage.example/media/video/1/poster.jpg", content[:thumbnailUrl]
+        end
+      end
     end
   end
 end

@@ -128,11 +128,12 @@ module Api::V1::ConcertoSerializer
       graphic_urls = graphic_media_urls(content)
       base.merge(imageUrl: graphic_urls[:media_url], thumbnailUrl: graphic_urls[:thumbnail_url])
     elsif content.is_a?(Video)
+      video_urls = video_media_urls(content)
       base.merge(
-        url: content.playback_url,
+        url: video_urls[:media_url],
         videoSource: content.video_source,
         videoId: content.video_id,
-        thumbnailUrl: content.thumbnail_url
+        thumbnailUrl: video_urls[:thumbnail_url]
       )
     elsif content.is_a?(RichText)
       base.merge(text: content.text, renderAs: content.render_as)
@@ -152,8 +153,9 @@ module Api::V1::ConcertoSerializer
       media_url = graphic_urls[:media_url]
       thumbnail_url = graphic_urls[:thumbnail_url]
     elsif content.is_a?(Video)
-      media_url = content.playback_url
-      thumbnail_url = content.thumbnail_url
+      video_urls = video_media_urls(content)
+      media_url = video_urls[:media_url]
+      thumbnail_url = video_urls[:thumbnail_url]
     end
 
     {
@@ -185,6 +187,23 @@ module Api::V1::ConcertoSerializer
   rescue Supabase::Client::Error => error
     Rails.logger.warn("Supabase dashboard preview unavailable: #{error.class}")
     { media_url: fallback, thumbnail_url: fallback }
+  end
+
+  def video_media_urls(content)
+    fallback_media_url = content.playback_url
+    fallback_thumbnail_url = content.thumbnail_url
+    return { media_url: fallback_media_url, thumbnail_url: fallback_thumbnail_url } unless Supabase::Client.configured?
+
+    media = supabase_media_for(content.id)
+    return { media_url: fallback_media_url, thumbnail_url: fallback_thumbnail_url } unless media
+
+    media_url = signed_media_url(media["storage_path"]) || fallback_media_url
+    thumbnail_url = signed_media_url(media["thumbnail_path"]) || media["thumbnail_url"].presence || fallback_thumbnail_url
+
+    { media_url: media_url, thumbnail_url: thumbnail_url }
+  rescue Supabase::Client::Error => error
+    Rails.logger.warn("Supabase dashboard video preview unavailable: #{error.class}")
+    { media_url: fallback_media_url, thumbnail_url: fallback_thumbnail_url }
   end
 
   def serialize_submission(submission)
@@ -247,7 +266,7 @@ module Api::V1::ConcertoSerializer
 
     @supabase_media_by_content_id[content_id] = Supabase::Client.get(
       "media",
-      params: { "select" => "storage_path,thumbnail_path", "legacy_id" => "eq.#{content_id}", "limit" => "1" }
+      params: { "select" => "storage_path,thumbnail_path,thumbnail_url", "legacy_id" => "eq.#{content_id}", "limit" => "1" }
     ).first
   end
 

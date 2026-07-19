@@ -14,7 +14,25 @@ class VideoTranscodeJob < ApplicationJob
       video.file.blob.open do |file|
         input = file.path
 
-        system(
+        poster_created = system(
+          ffmpeg,
+          "-y",
+          "-ss", "00:00:01.000",
+          "-i", input,
+          "-frames:v", "1",
+          "-q:v", "3",
+          tmp_poster.path
+        )
+        raise "ffmpeg poster extraction failed" unless poster_created && File.size?(tmp_poster.path)
+
+        video.poster.attach(
+          io: File.open(tmp_poster.path),
+          filename: "#{video.id}.jpg",
+          content_type: "image/jpeg"
+        )
+        Supabase::Sync::Content.call(video) if Supabase::Client.configured?
+
+        transcoded = system(
           ffmpeg,
           "-y",
           "-i", input,
@@ -26,33 +44,14 @@ class VideoTranscodeJob < ApplicationJob
           "-movflags", "+faststart",
           tmp_mp4.path
         )
-
-        system(
-          ffmpeg,
-          "-y",
-          "-ss", "00:00:01.000",
-          "-i", input,
-          "-frames:v", "1",
-          "-q:v", "3",
-          tmp_poster.path
-        )
+        raise "ffmpeg video transcode failed" unless transcoded && File.size?(tmp_mp4.path)
       end
 
-      if File.size?(tmp_mp4.path)
-        video.mp4.attach(
-          io: File.open(tmp_mp4.path),
-          filename: "#{video.id}.mp4",
-          content_type: "video/mp4"
-        )
-      end
-
-      if File.size?(tmp_poster.path)
-        video.poster.attach(
-          io: File.open(tmp_poster.path),
-          filename: "#{video.id}.jpg",
-          content_type: "image/jpeg"
-        )
-      end
+      video.mp4.attach(
+        io: File.open(tmp_mp4.path),
+        filename: "#{video.id}.mp4",
+        content_type: "video/mp4"
+      )
 
       Supabase::Sync::Content.call(video) if Supabase::Client.configured?
     rescue StandardError => e

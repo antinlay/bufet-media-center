@@ -145,7 +145,7 @@ export default function PlaylistLibraryScreen() {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MediaThumbnail uri={item.thumbnailUrl} type={item.type} style={styles.mediaImage} />
+                  <MediaThumbnail uri={item.thumbnailUrl} mediaUri={item.mediaUrl} type={item.type} style={styles.mediaImage} />
                   {selected ? (
                     <View style={styles.checkBadge}>
                       <MaterialCommunityIcons name="check" color={colors.onAccent} size={17} />

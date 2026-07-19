@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { IconButton, Text, TouchableRipple } from 'react-native-paper';
 import { usePathname, useRouter } from 'expo-router';
-import { PreferenceControls } from '@/components/preference-controls';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/providers/AppThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useI18n } from '@/providers/I18nProvider';
@@ -40,7 +40,7 @@ export function AppShell({
   const styles = createStyles(colors, radius.md, radius.lg);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {isWide ? (
         <View style={styles.sidebar}>
           <View style={styles.sidebarTop}>
@@ -65,7 +65,6 @@ export function AppShell({
             </View>
           </View>
           <View style={styles.userCard}>
-            <PreferenceControls compact />
             <Text style={styles.userName}>{user?.firstName ?? t('common.user')} {user?.lastName ?? ''}</Text>
             <Text selectable style={styles.userEmail}>{user?.email}</Text>
             <TouchableRipple accessibilityRole="button" onPress={logout} style={styles.logoutButton}>
@@ -81,7 +80,6 @@ export function AppShell({
             <View style={styles.topNavHeader}>
               <Text style={styles.brandTitle}>{t('brand.name')}</Text>
               <View style={styles.topNavTools}>
-                <PreferenceControls compact showTheme={!isMobile || pathname === '/'} />
                 <IconButton accessibilityLabel={t('nav.logout')} icon="logout" onPress={logout} iconColor={colors.textPrimary} />
               </View>
             </View>
@@ -114,7 +112,7 @@ export function AppShell({
           {children}
         </ScrollView>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

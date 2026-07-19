@@ -13,6 +13,25 @@ import {
 } from './model';
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const VIDEO_THUMBNAIL_WAIT_MS = 12_000;
+const VIDEO_THUMBNAIL_POLL_MS = 750;
+
+async function waitForVideoThumbnail(content: Awaited<ReturnType<typeof apiClient.createContent>>) {
+  if (content.type !== 'Video' || content.thumbnailUrl) return content;
+
+  const deadline = Date.now() + VIDEO_THUMBNAIL_WAIT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, VIDEO_THUMBNAIL_POLL_MS));
+    try {
+      const refreshed = await apiClient.getContent(content.id);
+      if (refreshed.thumbnailUrl) return refreshed;
+    } catch {
+      // Keep the uploaded video usable; the web thumbnail can fall back to its first frame.
+    }
+  }
+
+  return content;
+}
 
 export async function loadPlaylistEditor(screenId: number, labels: PlaylistLabels, signal?: AbortSignal) {
   const [screen, playlist] = await Promise.all([
@@ -44,7 +63,7 @@ export async function loadScreenPlaylists(labels: PlaylistLabels, signal?: Abort
       totalDurationSeconds: durations.some((duration) => duration == null)
         ? null
         : durations.reduce<number>((total, duration) => total + (duration ?? 0), 0),
-      previews: items.slice(0, 6).map(({ key, thumbnailUrl, type }) => ({ key, thumbnailUrl, type })),
+      previews: items.slice(0, 6).map(({ key, thumbnailUrl, mediaUrl, type }) => ({ key, thumbnailUrl, mediaUrl, type })),
     };
   }));
   return cards.sort((left, right) => left.title.localeCompare(right.title));
@@ -62,10 +81,11 @@ export async function uploadMediaFiles(
     if (type === 'Video' && file.size && file.size > MAX_VIDEO_BYTES) {
       throw new Error('VIDEO_FILE_TOO_LARGE');
     }
-    const content = await apiClient.createContent(
+    const createdContent = await apiClient.createContent(
       { type, name: fileTitle(file), duration: type === 'Graphic' ? 15 : undefined },
       file,
     );
+    const content = await waitForVideoThumbnail(createdContent);
     const item = mapLibraryItem(content, labels);
     if (!item) throw new Error('UNSUPPORTED_CONTENT_TYPE');
     uploaded.push(item);

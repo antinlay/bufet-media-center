@@ -40,7 +40,7 @@ export interface ScreenPlaylistCardViewModel {
   organizationName: string;
   itemCount: number;
   totalDurationSeconds: number | null;
-  previews: Pick<PlaylistItemViewModel, 'key' | 'thumbnailUrl' | 'type'>[];
+  previews: Pick<PlaylistItemViewModel, 'key' | 'thumbnailUrl' | 'mediaUrl' | 'type'>[];
 }
 
 export interface UrlPreview {
