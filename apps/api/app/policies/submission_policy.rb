@@ -1,18 +1,20 @@
 class SubmissionPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
-    # All users (including anonymous) can see all submissions
     def resolve
-      scope.all
+      return scope.all unless user
+      return scope.all if user.system_admin?
+
+      visible_feed_ids = FeedPolicy::Scope.new(user, Feed.all).resolve.select(:id)
+      visible_content_ids = ContentPolicy::Scope.new(user, Content.all).resolve.select(:id)
+      scope.where(feed_id: visible_feed_ids).or(scope.where(content_id: visible_content_ids)).distinct
     end
   end
 
   def index?
-    # Everyone can view the list
     true
   end
 
   def show?
-    # Everyone can view individual submissions
     true
   end
 
@@ -40,6 +42,13 @@ class SubmissionPolicy < ApplicationPolicy
 
   private
 
+  def can_view_submission?
+    return false unless user
+    return true if record.content&.user_id == user.id
+
+    record.feed&.group&.member?(user) && !record.feed.group.system_group?
+  end
+
   # Only the owner of a piece of content can create a submission
   def can_create_submission?
     return false unless user
@@ -47,13 +56,17 @@ class SubmissionPolicy < ApplicationPolicy
     return true if record.is_a?(Class)
     # For new records without content selected yet, allow signed-in users to access the form
     return true if record.new_record? && record.content.nil?
-    # For instance-level checks with content, verify content ownership
-    record.content&.user_id == user.id
+    return false unless record.content&.user_id == user.id
+    return true unless record.feed
+
+    record.feed.group.member?(user) && !record.feed.group.system_group?
   end
 
   # Submissions may be deleted by the owner of the piece of content
   def can_destroy_submission?
     return false unless user
-    record.content.user_id == user.id
+    return false unless record.content.user_id == user.id
+
+    record.feed.group.member?(user) && !record.feed.group.system_group?
   end
 end

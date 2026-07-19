@@ -15,6 +15,11 @@ class Api::V1::SubscriptionsController < Api::V1::BaseController
     subscription = screen.subscriptions.new(subscription_params)
     authorize subscription
 
+    unless policy_scope(Feed).where(id: subscription.feed_id).exists?
+      render json: { message: "Feed is not accessible" }, status: :forbidden
+      return
+    end
+
     if subscription.save
       render json: serialize_subscription(subscription), status: :created
     else

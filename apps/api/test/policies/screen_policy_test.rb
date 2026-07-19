@@ -9,14 +9,16 @@ class ScreenPolicyTest < ActiveSupport::TestCase
     @screen = screens(:one)
   end
 
-  test "index? is permitted for all users" do
+  test "index? remains public for the legacy interface" do
     assert ScreenPolicy.new(nil, @screen).index?
     assert ScreenPolicy.new(@non_group_user, @screen).index?
   end
 
-  test "show? is permitted for all users" do
+  test "legacy show remains public while tenant show is isolated" do
     assert ScreenPolicy.new(nil, @screen).show?
     assert ScreenPolicy.new(@non_group_user, @screen).show?
+    refute ScreenPolicy.new(@non_group_user, @screen).tenant_show?
+    assert ScreenPolicy.new(@group_regular_user, @screen).tenant_show?
   end
 
   test "new? is permitted for system admin" do
@@ -31,9 +33,13 @@ class ScreenPolicyTest < ActiveSupport::TestCase
     refute ScreenPolicy.new(@group_regular_user, Screen.new).new?
   end
 
-  test "scope resolves to all screens" do
-    resolved_scope = ScreenPolicy::Scope.new(nil, Screen.all).resolve
-    assert_equal Screen.all.to_a, resolved_scope.to_a
+  test "scope resolves only screens in the user's organizations" do
+    assert_equal Screen.all.to_a, ScreenPolicy::Scope.new(nil, Screen.all).resolve.to_a
+    assert_empty ScreenPolicy::Scope.new(@non_group_user, Screen.all).resolve
+
+    resolved_scope = ScreenPolicy::Scope.new(@group_regular_user, Screen.all).resolve
+    assert_includes resolved_scope, screens(:one)
+    refute_includes resolved_scope, screens(:e2e)
   end
 
   # --- Create, Edit, Destroy Tests --- #

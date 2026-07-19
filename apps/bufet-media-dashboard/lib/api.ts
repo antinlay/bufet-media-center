@@ -582,7 +582,7 @@ export class ApiClient {
     return handleResponse<void>(res);
   }
 
-  async createMembership(payload: { user_id: number; group_id: number; role?: string }): Promise<void> {
+  async createMembership(payload: { email: string; group_id: number; role?: string }): Promise<void> {
     const res = await request(`/api/v1/groups/${payload.group_id}/memberships`, {
       method: 'POST',
       headers: this.headers(),

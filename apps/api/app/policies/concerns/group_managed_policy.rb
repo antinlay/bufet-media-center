@@ -22,9 +22,13 @@ module GroupManagedPolicy
 
   included do
     class Scope < ApplicationPolicy::Scope
-      # Group-managed entities are visible to all users, even anonymous users.
       def resolve
-        scope.all
+        return scope.all unless user
+        return scope.all if user.system_admin?
+
+        visible_group_ids = Group.visible_to(user).select(:id)
+
+        scope.joins(:group).where(group_id: visible_group_ids).distinct
       end
     end
   end
@@ -44,7 +48,7 @@ module GroupManagedPolicy
   # Users can create new entities if they are admin of at least one group.
   def can_create_new?
     return false unless user
-    user.admin_groups.any?
+    user.admin_groups.tenant_visible.exists?
   end
 
   # Check if user can create this specific entity.
@@ -60,6 +64,13 @@ module GroupManagedPolicy
   # Users can edit entities if they are a member of the entity's group.
   def can_edit?
     return false unless user
+    can_view?
+  end
+
+  def can_view?
+    return false unless user
+    return false if record.group&.system_group?
+
     record.group&.member?(user)
   end
 

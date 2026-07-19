@@ -9,20 +9,18 @@ class SubmissionPolicyTest < ActiveSupport::TestCase
     @submission = submissions(:three)  # Links plain_richtext (owned by admin) to feed two
   end
 
-  test "scope returns all submissions for everyone" do
-    resolved_scope = SubmissionPolicy::Scope.new(nil, Submission.all).resolve
-    assert_equal Submission.all.to_a, resolved_scope.to_a
-
-    resolved_scope = SubmissionPolicy::Scope.new(@other_user, Submission.all).resolve
-    assert_equal Submission.all.to_a, resolved_scope.to_a
+  test "scope hides submissions from unrelated users" do
+    assert_equal Submission.all.to_a, SubmissionPolicy::Scope.new(nil, Submission.all).resolve.to_a
+    refute_includes SubmissionPolicy::Scope.new(@non_member, Submission.all).resolve, @submission
+    assert_includes SubmissionPolicy::Scope.new(@content_owner, Submission.all).resolve, @submission
   end
 
-  test "index? is permitted for everyone" do
+  test "index? is permitted for signed-in users" do
     assert SubmissionPolicy.new(nil, Submission).index?
     assert SubmissionPolicy.new(@non_member, Submission).index?
   end
 
-  test "show? is permitted for everyone" do
+  test "show? remains public for the legacy interface" do
     assert SubmissionPolicy.new(nil, @submission).show?
     assert SubmissionPolicy.new(@non_member, @submission).show?
   end

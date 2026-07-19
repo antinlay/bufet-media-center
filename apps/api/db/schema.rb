@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_010100) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -90,7 +90,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_000000) do
     t.string "name"
     t.integer "parent_id"
     t.datetime "updated_at", null: false
-    t.index ["name"], name: "index_groups_on_name", unique: true
+    t.index ["name"], name: "index_groups_on_name"
+    t.index ["name"], name: "index_groups_on_unique_system_name", unique: true, where: "name IN ('All Registered Users', 'System Administrators')"
     t.index ["parent_id"], name: "index_groups_on_parent_id"
   end
 

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 import { apiClient } from '../lib/api';
@@ -24,14 +25,23 @@ const authRedirectUrl = (path: string) => (
 );
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<ConcertoUser | null>(null);
   const [loading, setLoading] = useState(true);
   const syncRequest = useRef(0);
+  const sessionUserId = useRef<string | null>(null);
 
   const syncSession = useCallback(async (session: Session | null, throwOnError = false) => {
     const requestId = ++syncRequest.current;
     const nextToken = session?.access_token ?? null;
+    const nextUserId = session?.user.id ?? null;
+
+    if (sessionUserId.current !== nextUserId) {
+      sessionUserId.current = nextUserId;
+      queryClient.clear();
+      setUser(null);
+    }
 
     if (!session) {
       apiClient.setToken(null);
@@ -55,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       if (throwOnError) throw error;
     }
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     if (!supabase) {

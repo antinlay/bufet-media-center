@@ -11,7 +11,7 @@ class Api::V1::UsersController < Api::V1::BaseController
 
   def show
     user = User.includes(:memberships, :groups).find(params[:id])
-    authorize user
+    authorize user, :tenant_show?
     render json: serialize_user(user)
   end
 

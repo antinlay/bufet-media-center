@@ -214,13 +214,20 @@ module Api::V1::ConcertoSerializer
   def serialize_user(user)
     return nil unless user
 
+    memberships = user.memberships.includes(:group)
+    viewer = current_user if respond_to?(:current_user, true)
+    unless viewer&.system_admin?
+      visible_group_ids = GroupPolicy::Scope.new(viewer, Group.all).resolve.select(:id)
+      memberships = memberships.where(group_id: visible_group_ids)
+    end
+
     {
       id: user.id,
       email: user.email,
       firstName: user.first_name,
       lastName: user.last_name,
       systemAdmin: user.system_admin?,
-      groups: user.memberships.includes(:group).map { |membership|
+      groups: memberships.map { |membership|
         {
           membershipId: membership.id,
           id: membership.group_id,

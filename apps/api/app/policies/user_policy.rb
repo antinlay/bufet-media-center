@@ -1,9 +1,13 @@
 class UserPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
-    # All signed-in users can see all users
     def resolve
       return scope.none unless user
-      scope.all
+      return scope.all if user.system_admin?
+
+      shared_group_ids = Group.visible_to(user).select(:id)
+      shared_user_ids = Membership.where(group_id: shared_group_ids).select(:user_id)
+
+      scope.where(id: shared_user_ids).or(scope.where(id: user.id)).distinct
     end
   end
 
@@ -13,8 +17,11 @@ class UserPolicy < ApplicationPolicy
   end
 
   def show?
-    # Only signed-in users can view user profiles
     user.present?
+  end
+
+  def tenant_show?
+    system_admin_only || can_view_user?
   end
 
   def new?
@@ -50,6 +57,13 @@ class UserPolicy < ApplicationPolicy
   end
 
   private
+
+  def can_view_user?
+    return false unless user
+    return true if user.id == record.id
+
+    Group.visible_to(user).any? { |group| group.member?(record) }
+  end
 
   # A user may only update themselves (system admins can manage anyone via super)
   def can_edit_user?

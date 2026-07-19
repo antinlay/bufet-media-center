@@ -7,6 +7,13 @@ class Api::V1::MembershipsController < Api::V1::BaseController
     membership = Membership.new
     membership.assign_attributes(membership_params(membership))
     membership.group_id ||= params[:group_id]
+    membership.user ||= user_from_email
+
+    unless membership.user
+      render json: { message: "User not found" }, status: :unprocessable_entity
+      return
+    end
+
     authorize membership
 
     if membership.save
@@ -41,5 +48,13 @@ class Api::V1::MembershipsController < Api::V1::BaseController
   def membership_params(record)
     payload = params[:membership].presence || params
     payload.permit(policy(record).permitted_attributes)
+  end
+
+  def user_from_email
+    payload = params[:membership].presence || params
+    email = payload[:email].to_s.strip.downcase
+    return if email.blank?
+
+    User.where("LOWER(email) = ?", email).first
   end
 end

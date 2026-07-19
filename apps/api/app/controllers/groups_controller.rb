@@ -11,7 +11,7 @@ class GroupsController < ApplicationController
   def show
     authorize @group
     @members = @group.memberships.includes(:user).order("users.first_name, users.last_name")
-    @available_users = User.where.not(id: @group.user_ids).order(:first_name, :last_name)
+    @available_users = policy_scope(User).where.not(id: @group.user_ids).order(:first_name, :last_name)
   end
 
   def new
@@ -23,7 +23,12 @@ class GroupsController < ApplicationController
     @group = Group.new(group_params)
     authorize @group
 
-    if @group.save
+    Group.transaction do
+      @group.save
+      @group.memberships.create!(user: current_user, role: :admin) if @group.persisted?
+    end
+
+    if @group.persisted?
       redirect_to @group, notice: "Group was successfully created."
     else
       render :new, status: :unprocessable_entity
@@ -35,8 +40,9 @@ class GroupsController < ApplicationController
   end
 
   def update
+    @group.assign_attributes(group_params)
     authorize @group
-    if @group.update(group_params)
+    if @group.save
       redirect_to @group, notice: "Group was successfully updated."
     else
       render :edit, status: :unprocessable_entity

@@ -9,22 +9,25 @@ class FeedPolicyTest < ActiveSupport::TestCase
     @feed = feeds(:one)
   end
 
-  test "scope returns all feeds for everyone" do
-    resolved_scope = FeedPolicy::Scope.new(nil, Feed.all).resolve
-    assert_equal Feed.all.to_a, resolved_scope.to_a
+  test "scope returns only feeds in the user's organizations" do
+    assert_equal Feed.all.to_a, FeedPolicy::Scope.new(nil, Feed.all).resolve.to_a
+    assert_empty FeedPolicy::Scope.new(@non_group_user, Feed.all).resolve
 
     resolved_scope = FeedPolicy::Scope.new(@group_regular_user, Feed.all).resolve
-    assert_equal Feed.all.to_a, resolved_scope.to_a
+    assert_includes resolved_scope, feeds(:one)
+    refute_includes resolved_scope, feeds(:two)
   end
 
-  test "index? is permitted for everyone" do
+  test "index? remains public for the legacy interface" do
     assert FeedPolicy.new(nil, Feed).index?
     assert FeedPolicy.new(@non_group_user, Feed).index?
   end
 
-  test "show? is permitted for everyone" do
+  test "legacy show remains public while tenant show is isolated" do
     assert FeedPolicy.new(nil, @feed).show?
     assert FeedPolicy.new(@non_group_user, @feed).show?
+    refute FeedPolicy.new(@non_group_user, @feed).tenant_show?
+    assert FeedPolicy.new(@group_regular_user, @feed).tenant_show?
   end
 
   test "new? is permitted for system admin" do

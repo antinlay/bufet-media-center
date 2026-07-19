@@ -225,9 +225,10 @@ class GroupManagedPolicyTest < ActiveSupport::TestCase
 
   # Tests for Scope
 
-  test "Scope resolves to all entities" do
+  test "Scope resolves only entities in the user's groups" do
     scope = TestGroupManagedPolicy::Scope.new(@group_regular_user, Screen.all).resolve
-    assert_equal Screen.all.to_a, scope.to_a, "Scope should return all entities"
+    assert_includes scope, screens(:one)
+    refute_includes scope, screens(:e2e)
   end
 
   test "Scope resolves to all entities for anonymous user" do

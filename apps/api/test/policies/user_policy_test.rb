@@ -7,9 +7,11 @@ class UserPolicyTest < ActiveSupport::TestCase
     @other_user = users(:admin)
   end
 
-  test "scope returns all users for signed-in users" do
+  test "scope returns only self and users from shared organizations" do
     resolved_scope = UserPolicy::Scope.new(@regular_user, User.all).resolve
-    assert_equal User.all.to_a, resolved_scope.to_a
+    assert_includes resolved_scope, @regular_user
+    assert_includes resolved_scope, @other_user
+    refute_includes resolved_scope, users(:non_member)
   end
 
   test "scope returns no users for anonymous users" do
@@ -25,8 +27,13 @@ class UserPolicyTest < ActiveSupport::TestCase
     refute UserPolicy.new(nil, User).index?
   end
 
-  test "show? is permitted for signed-in users" do
+  test "show? is permitted for users from a shared organization" do
     assert UserPolicy.new(@other_user, @regular_user).show?
+  end
+
+  test "tenant show is denied across isolated organizations" do
+    assert UserPolicy.new(users(:non_member), @regular_user).show?
+    refute UserPolicy.new(users(:non_member), @regular_user).tenant_show?
   end
 
   test "show? is denied for anonymous users" do

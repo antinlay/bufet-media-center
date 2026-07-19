@@ -14,7 +14,7 @@ class Api::V1::ScreensController < Api::V1::BaseController
 
   def show
     screen = Screen.includes(:group, :template, :player_device).find(params[:id])
-    authorize screen
+    authorize screen, :tenant_show?
     status = Supabase::ScreenStatus.for_legacy_ids([ screen.id ])[screen.id]
     render json: serialize_screen(screen, status: status)
   end

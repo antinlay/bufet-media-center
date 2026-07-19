@@ -1,19 +1,29 @@
 class ContentPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
-    # All users (including anonymous) can see all content
     def resolve
-      scope.all
+      return scope.all unless user
+      return scope.all if user.system_admin?
+
+      visible_group_ids = Group.visible_to(user).select(:id)
+      shared_content_ids = scope
+        .joins(submissions: :feed)
+        .where(feeds: { group_id: visible_group_ids })
+        .select(:id)
+
+      scope.where(user_id: user.id).or(scope.where(id: shared_content_ids)).distinct
     end
   end
 
   def index?
-    # Everyone can view the list
     true
   end
 
   def show?
-    # Everyone can view individual content items
     true
+  end
+
+  def tenant_show?
+    system_admin_only || can_view_content?
   end
 
   def new?
@@ -37,6 +47,13 @@ class ContentPolicy < ApplicationPolicy
   end
 
   private
+
+  def can_view_content?
+    return false unless user
+    return true if record.user_id == user.id
+
+    Group.visible_to(user).where(id: record.feeds.select(:group_id)).exists?
+  end
 
   # All signed-in users can create content
   def can_create_content?

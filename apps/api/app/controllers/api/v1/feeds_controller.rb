@@ -11,7 +11,7 @@ class Api::V1::FeedsController < Api::V1::BaseController
 
   def show
     feed = Feed.find(params[:id])
-    authorize feed
+    authorize feed, :tenant_show?
     render json: serialize_feed(feed)
   end
 

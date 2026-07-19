@@ -2,12 +2,11 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
   include Api::V1::ConcertoSerializer
 
   before_action :set_screen
+  before_action :authorize_screen
   before_action :set_playlist_feed
   after_action :verify_authorized
 
   def show
-    authorize @screen, :show?
-
     render json: {
       screenId: @screen.id,
       feedId: @playlist_feed.id,
@@ -16,11 +15,9 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
   end
 
   def create
-    authorize @screen, :update?
-
     content_id = content_payload[:content_id].presence || content_payload[:contentId].presence
     if content_id.present?
-      content = Content.find_by(id: content_id)
+      content = policy_scope(Content).find_by(id: content_id)
       unless content
         render json: { message: "Content not found" }, status: :not_found
         return
@@ -99,8 +96,6 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
   end
 
   def update
-    authorize @screen, :update?
-
     submission = find_submission
     content = submission.content
     content.assign_attributes(update_payload(content))
@@ -129,8 +124,6 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
   end
 
   def reorder
-    authorize @screen, :update?
-
     ids = params[:submission_ids].presence || params[:submissionIds].presence
     unless ids.is_a?(Array)
       render json: { message: "submission_ids is required" }, status: :unprocessable_entity
@@ -156,8 +149,6 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
   end
 
   def destroy
-    authorize @screen, :update?
-
     submission = find_submission
     content = submission.content
     submission.destroy!
@@ -175,6 +166,11 @@ class Api::V1::ScreenPlaylistsController < Api::V1::BaseController
 
   def set_screen
     @screen = Screen.find(params[:screen_id] || params[:id])
+  end
+
+  def authorize_screen
+    query = action_name == "show" ? :tenant_show? : :update?
+    authorize @screen, query
   end
 
   def set_playlist_feed

@@ -19,7 +19,12 @@ class Api::V1::GroupsController < Api::V1::BaseController
     group = Group.new(group_params)
     authorize group
 
-    if group.save
+    Group.transaction do
+      group.save
+      group.memberships.create!(user: current_user, role: :admin) if group.persisted?
+    end
+
+    if group.persisted?
       render json: serialize_group(group), status: :created
     else
       render json: { message: group.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -28,9 +33,10 @@ class Api::V1::GroupsController < Api::V1::BaseController
 
   def update
     group = Group.find(params[:id])
+    group.assign_attributes(group_params)
     authorize group
 
-    if group.update(group_params)
+    if group.save
       render json: serialize_group(group)
     else
       render json: { message: group.errors.full_messages.to_sentence }, status: :unprocessable_entity

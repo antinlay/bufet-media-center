@@ -13,9 +13,12 @@ class Group < ApplicationRecord
   has_many :screens, dependent: :destroy
   has_many :feeds, dependent: :destroy
 
-  validates :name, presence: true, uniqueness: true
+  validates :name, presence: true
+  validates :name, uniqueness: true, if: :system_group?
   validate :parent_cannot_be_self_or_descendant
   validate :system_group_cannot_be_child
+
+  scope :tenant_visible, -> { where.not(name: SYSTEM_GROUP_NAMES) }
 
   # Prevent deletion of system groups
   before_destroy :cannot_destroy_system_group
@@ -76,6 +79,23 @@ class Group < ApplicationRecord
   # Class method to easily find the system administrators group.
   def self.system_admins_group
     find_by(name: SYSTEM_ADMIN_GROUP_NAME)
+  end
+
+  def self.visible_to(user)
+    return none unless user
+    return all if user.system_admin?
+
+    direct_group_ids = tenant_visible
+      .joins(:memberships)
+      .where(memberships: { user_id: user.id })
+      .pluck(:id)
+    return none if direct_group_ids.empty?
+
+    visible_ids = tenant_visible.select do |group|
+      (group.self_and_ancestor_ids & direct_group_ids).any?
+    end.map(&:id)
+
+    where(id: visible_ids)
   end
 
   # Check if this is a system group

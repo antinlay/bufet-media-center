@@ -32,11 +32,10 @@ class GroupsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "only system admins can create groups" do
+  test "signed in users can create organizations" do
     sign_in @regular_user
     get new_group_url
-    assert_redirected_to root_path
-    assert_equal "You are not authorized to perform this action.", flash[:alert]
+    assert_response :success
   end
 
   test "system admins can create groups" do
@@ -77,12 +76,12 @@ class GroupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal original_name, @group.name
   end
 
-  test "only system admins can destroy groups" do
+  test "group admins can destroy their groups" do
     sign_in @admin_user
-    assert_no_difference("Group.count") do
+    assert_difference("Group.count", -1) do
       delete group_url(@group)
     end
-    assert_redirected_to root_path
+    assert_redirected_to groups_url
   end
 
   test "system admins can destroy groups" do
@@ -110,7 +109,7 @@ class GroupsControllerTest < ActionDispatch::IntegrationTest
 
   test "should create group" do
     sign_in @system_admin
-    assert_difference("Group.count") do
+    assert_difference([ "Group.count", "Membership.count" ], 1) do
       post groups_url, params: {
         group: {
           name: "New Test Group",
@@ -119,6 +118,7 @@ class GroupsControllerTest < ActionDispatch::IntegrationTest
       }
     end
 
+    assert Group.last.admin?(@system_admin)
     assert_redirected_to group_url(Group.last)
     follow_redirect!
     assert_select ".alert-success", /Group was successfully created/

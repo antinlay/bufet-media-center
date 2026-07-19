@@ -6,6 +6,7 @@ import { AppShell } from '../../components/AppShell';
 import { BrandCard } from '../../components/BrandCard';
 import { EmptyState } from '../../components/EmptyState';
 import { Section } from '../../components/Section';
+import { TextInput } from '../../components/TextInput';
 import { apiClient } from '../../lib/api';
 import { buildGroupTree, flattenGroupTree } from '../../lib/groupTree';
 import { useAppTheme } from '../../providers/AppThemeProvider';
@@ -26,7 +27,7 @@ export default function UsersScreen() {
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
   const availableGroups = (groupsQuery.data ?? []).filter((group) => !group.systemGroup);
   const flatGroups = flattenGroupTree(buildGroupTree(availableGroups));
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [email, setEmail] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<'member' | 'admin'>('member');
   const [error, setError] = useState<string | null>(null);
@@ -34,22 +35,22 @@ export default function UsersScreen() {
   const { t } = useI18n();
   const styles = createStyles(colors);
 
-  const effectiveSelectedUserId = selectedUserId ?? users[0]?.id ?? null;
   const effectiveSelectedGroupId = selectedGroupId ?? flatGroups[0]?.group.id ?? null;
 
   const addMembershipMutation = useMutation({
     mutationFn: () => {
-      if (!effectiveSelectedUserId || !effectiveSelectedGroupId) {
+      if (!email.trim() || !effectiveSelectedGroupId) {
         throw new Error(t('users.selectValidation'));
       }
       return apiClient.createMembership({
-        user_id: effectiveSelectedUserId,
+        email: email.trim(),
         group_id: effectiveSelectedGroupId,
         role: selectedRole,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      setEmail('');
       setError(null);
     },
     onError: (caught: unknown) => setError(caught instanceof Error && caught.message === t('users.selectValidation') ? caught.message : t('users.addError')),
@@ -113,19 +114,18 @@ export default function UsersScreen() {
         <View style={styles.selectorRow}>
           <View style={styles.selector}>
             <Text style={styles.selectorTitle}>{t('users.user')}</Text>
-            <RadioButton.Group
-              value={effectiveSelectedUserId ? String(effectiveSelectedUserId) : ''}
-              onValueChange={(value) => setSelectedUserId(Number(value))}
-            >
-              {users.map((user) => (
-                <RadioButton.Item
-                  key={user.id}
-                  label={`${user.firstName ?? t('common.user')} ${user.lastName ?? ''}`.trim()}
-                  value={String(user.id)}
-                  labelStyle={styles.radioLabel}
-                />
-              ))}
-            </RadioButton.Group>
+            <TextInput
+              mode="outlined"
+              label={t('users.email')}
+              value={email}
+              onChangeText={(value) => {
+                setEmail(value);
+                setError(null);
+              }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={styles.emailInput}
+            />
           </View>
           <View style={styles.selector}>
             <Text style={styles.selectorTitle}>{t('users.organization')}</Text>
@@ -254,6 +254,9 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
     fontFamily: brandFonts.bodyEmphasis,
     color: colors.textSecondary,
     marginBottom: 6,
+  },
+  emailInput: {
+    backgroundColor: colors.inputBackground,
   },
   radioLabel: {
     fontFamily: brandFonts.body,

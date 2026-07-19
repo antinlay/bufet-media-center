@@ -1,9 +1,10 @@
 class GroupPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
-    # Only signed-in users can see groups
     def resolve
       return scope.none unless user
-      scope.all
+      return scope.all if user.system_admin?
+
+      scope.where(id: Group.visible_to(user).select(:id))
     end
   end
 
@@ -13,38 +14,57 @@ class GroupPolicy < ApplicationPolicy
   end
 
   def show?
-    # Only signed-in users can view individual groups
-    user.present?
+    super || can_view_group?
   end
 
   def new?
-    # Only system administrators can create groups
-    super
+    super || can_create_group?
   end
 
   def create?
-    # Only system administrators can create groups
-    super
+    super || can_create_group?
   end
 
   def edit?
-    super || can_edit_group?
+    super || can_update_group?
   end
 
   def update?
-    super || can_edit_group?
+    super || can_update_group?
   end
 
   def destroy?
-    # Only system administrators can destroy groups
-    super
+    super || can_manage_group?
   end
 
   private
 
-  # Only admins of the group can update it
-  def can_edit_group?
+  def can_view_group?
     return false unless user
+    return false if record.system_group?
+
+    record.member?(user)
+  end
+
+  def can_create_group?
+    return false unless user
+    return true if record.is_a?(Class)
+    return false if record.system_group?
+
+    record.parent.nil? || record.parent.admin?(user)
+  end
+
+  def can_update_group?
+    return false unless can_manage_group?
+    return true unless record.parent_id_changed?
+
+    record.parent.nil? || record.parent.admin?(user)
+  end
+
+  def can_manage_group?
+    return false unless user
+    return false if record.system_group?
+
     record.admin?(user)
   end
 end

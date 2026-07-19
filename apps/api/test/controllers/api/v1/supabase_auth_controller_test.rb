@@ -35,8 +35,9 @@ class Api::V1::SupabaseAuthControllerTest < ActionDispatch::IntegrationTest
 
   test "creates a local user for a new Supabase identity" do
     email = "new-supabase-user@example.test"
+    token = supabase_token(email:, uid: "new-supabase-user-id", metadata: { "first_name" => "New", "last_name" => "User" })
 
-    get "/api/v1/auth/me", headers: { "Authorization" => "Bearer #{supabase_token(email:, uid: "new-supabase-user-id", metadata: { "first_name" => "New", "last_name" => "User" })}" }
+    get "/api/v1/auth/me", headers: { "Authorization" => "Bearer #{token}" }
 
     assert_response :success
     user = User.find_by!(email:)
@@ -45,6 +46,14 @@ class Api::V1::SupabaseAuthControllerTest < ActionDispatch::IntegrationTest
     assert_equal "New", user.first_name
     assert_equal "User", user.last_name
     assert user.encrypted_password.present?
+
+    get "/api/v1/groups", headers: { "Authorization" => "Bearer #{token}" }
+    assert_response :success
+    assert_equal [], response.parsed_body
+
+    get "/api/v1/screens", headers: { "Authorization" => "Bearer #{token}" }
+    assert_response :success
+    assert_equal [], response.parsed_body
   end
 
   private

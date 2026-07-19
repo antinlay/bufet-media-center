@@ -9,22 +9,22 @@ class ContentPolicyTest < ActiveSupport::TestCase
     @content = rich_texts(:plain_richtext)  # Owned by admin user
   end
 
-  test "scope returns all content for everyone" do
-    resolved_scope = ContentPolicy::Scope.new(nil, Content.all).resolve
-    assert_equal Content.all.to_a, resolved_scope.to_a
-
-    resolved_scope = ContentPolicy::Scope.new(@other_user, Content.all).resolve
-    assert_equal Content.all.to_a, resolved_scope.to_a
+  test "scope hides content from unrelated users" do
+    assert_equal Content.all.to_a, ContentPolicy::Scope.new(nil, Content.all).resolve.to_a
+    refute_includes ContentPolicy::Scope.new(@non_member, Content.all).resolve, @content
+    assert_includes ContentPolicy::Scope.new(@content_owner, Content.all).resolve, @content
   end
 
-  test "index? is permitted for everyone" do
+  test "index? remains public for the legacy interface" do
     assert ContentPolicy.new(nil, Content).index?
     assert ContentPolicy.new(@non_member, Content).index?
   end
 
-  test "show? is permitted for everyone" do
+  test "legacy show remains public while tenant show is isolated" do
     assert ContentPolicy.new(nil, @content).show?
     assert ContentPolicy.new(@non_member, @content).show?
+    refute ContentPolicy.new(@non_member, @content).tenant_show?
+    assert ContentPolicy.new(@content_owner, @content).tenant_show?
   end
 
   test "new? is permitted for system admin" do

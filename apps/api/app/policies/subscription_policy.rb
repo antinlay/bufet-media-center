@@ -1,10 +1,10 @@
 class SubscriptionPolicy < ApplicationPolicy
-  # Subscriptions are visible to all users, even non-logged-in users.
-  # Subscriptions can be created, edited, and deleted by any member of the group associated with the screen.
   class Scope < ApplicationPolicy::Scope
-    # Subscriptions are visible to all users, even non-logged-in users.
     def resolve
-      scope.all
+      return scope.all unless user
+
+      visible_screen_ids = ScreenPolicy::Scope.new(user, Screen.all).resolve.select(:id)
+      scope.where(screen_id: visible_screen_ids)
     end
   end
 
@@ -36,6 +36,7 @@ class SubscriptionPolicy < ApplicationPolicy
 
   def member_of_screen_group?
     return false unless user
-    record.screen.group.member?(user)
+
+    record.screen.group.member?(user) && !record.screen.group.system_group?
   end
 end

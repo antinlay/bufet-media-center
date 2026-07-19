@@ -11,7 +11,7 @@ class Api::V1::ContentsController < Api::V1::BaseController
 
   def show
     content = Content.find(params[:id])
-    authorize content
+    authorize content, :tenant_show?
     render json: serialize_content(content)
   end
 
@@ -23,6 +23,11 @@ class Api::V1::ContentsController < Api::V1::BaseController
 
     attach_graphic_image(content)
     assign_feed_ids(content)
+
+    if @feed_assignment_error
+      render json: { message: "One or more feeds are not accessible" }, status: :forbidden
+      return
+    end
 
     if @image_attach_error
       render json: { message: "Invalid image upload" }, status: :unprocessable_entity
@@ -44,6 +49,11 @@ class Api::V1::ContentsController < Api::V1::BaseController
 
     attach_graphic_image(content)
     assign_feed_ids(content)
+
+    if @feed_assignment_error
+      render json: { message: "One or more feeds are not accessible" }, status: :forbidden
+      return
+    end
 
     if @image_attach_error
       render json: { message: "Invalid image upload" }, status: :unprocessable_entity
@@ -137,7 +147,14 @@ class Api::V1::ContentsController < Api::V1::BaseController
     feed_ids = content_payload[:feed_ids]
     return if feed_ids.nil?
 
-    content.feed_ids = Array(feed_ids).reject(&:blank?)
+    requested_ids = Array(feed_ids).reject(&:blank?).map(&:to_i).uniq
+    accessible_ids = policy_scope(Feed).where(id: requested_ids).pluck(:id)
+    if accessible_ids.size != requested_ids.size
+      @feed_assignment_error = true
+      return
+    end
+
+    content.feed_ids = accessible_ids
   end
 
   def sync_supabase!(content)

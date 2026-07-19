@@ -9,9 +9,12 @@ class GroupPolicyTest < ActiveSupport::TestCase
     @group = groups(:content_creators)
   end
 
-  test "scope returns all groups for signed-in users" do
+  test "scope returns only tenant groups shared with the user" do
     resolved_scope = GroupPolicy::Scope.new(@group_regular_user, Group.all).resolve
-    assert_equal Group.all.to_a, resolved_scope.to_a
+    assert_includes resolved_scope, groups(:content_creators)
+    assert_includes resolved_scope, groups(:screen_one_owners)
+    refute_includes resolved_scope, groups(:screen_two_owners)
+    refute_includes resolved_scope, groups(:all_users)
   end
 
   test "scope returns no groups for anonymous users" do
@@ -27,30 +30,25 @@ class GroupPolicyTest < ActiveSupport::TestCase
     refute GroupPolicy.new(nil, Group).index?
   end
 
-  test "show? is permitted for signed-in users" do
-    assert GroupPolicy.new(@non_group_user, @group).show?
+  test "show? is limited to group members" do
+    assert GroupPolicy.new(@group_regular_user, @group).show?
+    refute GroupPolicy.new(@non_group_user, @group).show?
   end
 
   test "show? is denied for anonymous users" do
     refute GroupPolicy.new(nil, @group).show?
   end
 
-  test "new? is permitted for system admin only" do
+  test "new? is permitted for any signed-in user" do
     assert GroupPolicy.new(@system_admin_user, Group.new).new?
+    assert GroupPolicy.new(@group_admin_user, Group.new).new?
+    assert GroupPolicy.new(@non_group_user, Group.new).new?
   end
 
-  test "new? is denied for non-system admin" do
-    refute GroupPolicy.new(@group_admin_user, Group.new).new?
-    refute GroupPolicy.new(@non_group_user, Group.new).new?
-  end
-
-  test "create? is permitted for system admin only" do
+  test "create? is permitted for any signed-in user" do
     assert GroupPolicy.new(@system_admin_user, Group.new).create?
-  end
-
-  test "create? is denied for non-system admin" do
-    refute GroupPolicy.new(@group_admin_user, Group.new).create?
-    refute GroupPolicy.new(@non_group_user, Group.new).create?
+    assert GroupPolicy.new(@group_admin_user, Group.new).create?
+    assert GroupPolicy.new(@non_group_user, Group.new).create?
   end
 
   test "edit? is permitted for system admin" do
@@ -85,12 +83,9 @@ class GroupPolicyTest < ActiveSupport::TestCase
     refute GroupPolicy.new(@non_group_user, @group).update?
   end
 
-  test "destroy? is permitted for system admin only" do
+  test "destroy? is permitted for system and group admins" do
     assert GroupPolicy.new(@system_admin_user, @group).destroy?
-  end
-
-  test "destroy? is denied for non-system admin" do
-    refute GroupPolicy.new(@group_admin_user, @group).destroy?
+    assert GroupPolicy.new(@group_admin_user, @group).destroy?
     refute GroupPolicy.new(@non_group_user, @group).destroy?
   end
 end

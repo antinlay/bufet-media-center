@@ -12,11 +12,10 @@ class GroupTest < ActiveSupport::TestCase
     assert_includes group.errors[:name], "can't be blank"
   end
 
-  test "should require unique name" do
+  test "should allow duplicate tenant group names" do
     existing_group = groups(:content_creators)
     group = Group.new(name: existing_group.name, description: "Different description")
-    assert_not group.valid?
-    assert_includes group.errors[:name], "has already been taken"
+    assert group.valid?
   end
 
   test "should identify system groups by name" do
@@ -110,15 +109,11 @@ class GroupTest < ActiveSupport::TestCase
     assert regular_group.save
   end
 
-  test "database should prevent duplicate group names" do
+  test "database should allow duplicate tenant group names" do
     existing_group = groups(:content_creators)
-
-    # Attempt to create a duplicate at the database level
     duplicate_group = Group.new(name: existing_group.name)
 
-    assert_raises(ActiveRecord::RecordNotUnique) do
-      duplicate_group.save(validate: false)  # Bypass validation to test DB constraint
-    end
+    assert duplicate_group.save(validate: false)
   end
 
   test "should prevent creating second All Registered Users group" do

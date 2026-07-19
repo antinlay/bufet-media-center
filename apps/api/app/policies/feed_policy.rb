@@ -9,6 +9,10 @@ class FeedPolicy < ApplicationPolicy
     true
   end
 
+  def tenant_show?
+    system_admin_only || can_view?
+  end
+
   def new?
     super || can_create_new?
   end
