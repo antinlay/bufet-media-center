@@ -13,6 +13,8 @@ type CheckState = {
   savedBaseUrl?: string | null;
   resolvedBaseUrl?: string | null;
   probe?: ProbeResult | null;
+  manifest?: { itemCount: number; screenId: string | number | null };
+  manifestError?: string;
   lastError?: unknown;
   screenError?: string;
 };
@@ -33,7 +35,7 @@ export default function DiagnosticsScreen() {
   const abortRef = useRef<AbortController | null>(null);
 
   const envApiUrl = useMemo(() => process.env.EXPO_PUBLIC_API_URL ?? '(unset)', []);
-  const configuredApiUrl = useMemo(() => ApiBaseUrl.getConfiguredApiUrl() ?? '(unset)', []);
+  const configuredApiUrl = useMemo(() => ApiBaseUrl.getConfiguredApiUrl(), []);
 
   useEffect(() => {
     const init = async () => {
@@ -78,9 +80,23 @@ export default function DiagnosticsScreen() {
 
       const baseUrl = PlayerService.getCachedApiBaseUrl() ?? baseUrlResolved ?? saved ?? configuredApiUrl;
       const probe = baseUrl ? await ApiBaseUrl.probe(baseUrl, id) : null;
+      let manifest: CheckState['manifest'];
+      let manifestError: string | undefined;
+      if (baseUrl) {
+        try {
+          const config = await PlayerService.getDeviceConfig(id, baseUrl, abortRef.current?.signal);
+          const screenId = config.settings?.screen_id;
+          manifest = {
+            itemCount: config.playlist.items.length,
+            screenId: typeof screenId === 'string' || typeof screenId === 'number' ? screenId : null,
+          };
+        } catch (error) {
+          manifestError = error instanceof Error ? error.message : String(error);
+        }
+      }
       const lastError = PlayerService.getLastNetworkError();
 
-      setChecks({ networkState, ip, savedBaseUrl: saved, resolvedBaseUrl: baseUrl, probe, lastError });
+      setChecks({ networkState, ip, savedBaseUrl: saved, resolvedBaseUrl: baseUrl, probe, manifest, manifestError, lastError });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setChecks((prev) => ({ ...prev, screenError: `Checks failed: ${detail}` }));
@@ -98,7 +114,7 @@ export default function DiagnosticsScreen() {
       <Row label="saved baseUrl" value={checks.savedBaseUrl ?? '(none)'} />
       <Row label="resolved baseUrl" value={checks.resolvedBaseUrl ?? '(none)'} />
       <Row label="EXPO_PUBLIC_API_URL" value={envApiUrl} />
-      <Row label="configured API URL" value={configuredApiUrl} />
+      <Row label="configured API URL" value={configuredApiUrl ?? '(unset)'} />
 
       <Row
         label="network"
@@ -109,6 +125,14 @@ export default function DiagnosticsScreen() {
         }
       />
       <Row label="ip" value={checks.ip ?? '(unknown)'} />
+      <Row
+        label="manifest"
+        value={
+          checks.manifest
+            ? `OK: items=${checks.manifest.itemCount} screen=${checks.manifest.screenId ?? '(unknown)'}`
+            : checks.manifestError ?? '(not checked)'
+        }
+      />
 
       <View style={styles.section}>
         <TvButton label="Run checks" onPress={() => void runChecks()} disabled={busy} hasTVPreferredFocus />

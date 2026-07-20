@@ -105,6 +105,10 @@ export class PlayerService {
     const abortFromCaller = () => controller.abort();
     const fetchInit = { ...init };
     delete fetchInit.signal;
+    const headers = new Headers(fetchInit.headers);
+    if (!headers.has('Accept')) {
+      headers.set('Accept', 'application/json');
+    }
 
     if (callerSignal?.aborted) {
       controller.abort();
@@ -114,7 +118,7 @@ export class PlayerService {
 
     const timeout = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT_MS);
     try {
-      const response = await fetch(url, { method, ...fetchInit, signal: controller.signal });
+      const response = await fetch(url, { method, ...fetchInit, headers, signal: controller.signal });
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         const error: PlayerServiceNetworkError = {
