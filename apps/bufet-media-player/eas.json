@@ -28,6 +28,7 @@
       }
     },
     "apk": {
+      "autoIncrement": true,
       "node": "20.17.0",
       "pnpm": "9.12.0",
       "android": {
