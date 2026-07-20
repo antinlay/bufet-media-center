@@ -104,7 +104,7 @@ export function AppShell({
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
           <View style={isMobile ? styles.headerMobile : styles.headerDesktop}>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>{title}</Text>
+              <Text numberOfLines={1} style={styles.title}>{title}</Text>
               {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
             </View>
             {actions ? <View style={isMobile ? styles.headerActionsMobile : styles.headerActionsDesktop}>{actions}</View> : null}
@@ -158,10 +158,10 @@ const createStyles = (colors: AppColors, radiusMd: number, radiusLg: number) => 
   topNavText: { color: colors.textSecondary, fontSize: 12, fontFamily: brandFonts.bodyEmphasis },
   topNavTextActive: { color: colors.onAccent },
   headerDesktop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 16 },
-  headerMobile: { flexDirection: 'column', alignItems: 'flex-start', marginBottom: 16, gap: 12 },
-  headerCopy: { flex: 1 },
+  headerMobile: { minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 },
+  headerCopy: { minWidth: 0, flex: 1 },
   headerActionsDesktop: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  headerActionsMobile: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
+  headerActionsMobile: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { fontFamily: brandFonts.heading, fontSize: 32, color: colors.textPrimary },
   subtitle: { color: colors.textSecondary, marginTop: 4, fontFamily: brandFonts.body },
   content: { minWidth: 0, paddingBottom: 80, gap: 16 },

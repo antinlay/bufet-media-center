@@ -43,6 +43,7 @@ export function GalleryShell({
   const { t } = useI18n();
   const styles = createStyles(colors, radius.md);
   const hasToolbarActions = Boolean(toolbarActions) || showPreferences;
+  const useSingleRowToolbar = isMobile && (showBack || hasToolbarActions);
 
   const goBack = () => {
     if (onBackPress) {
@@ -60,8 +61,8 @@ export function GalleryShell({
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.page}>
         <View style={styles.toolbarFrame}>
-          <View style={[styles.toolbar, isMobile && styles.toolbarMobile, isMobile && (showBack || showPreferences) && styles.toolbarMobileSingleRow]}>
-            <View style={[styles.toolbarIdentity, isMobile && styles.toolbarIdentityMobile, isMobile && (showBack || showPreferences) && styles.toolbarIdentitySingleRow]}>
+          <View style={[styles.toolbar, isMobile && styles.toolbarMobile, useSingleRowToolbar && styles.toolbarMobileSingleRow]}>
+            <View style={[styles.toolbarIdentity, isMobile && styles.toolbarIdentityMobile, useSingleRowToolbar && styles.toolbarIdentitySingleRow]}>
               {showBack ? (
                 <IconButton
                   icon="chevron-left"
@@ -83,7 +84,7 @@ export function GalleryShell({
               ) : null}
             </View>
             {hasToolbarActions ? (
-              <View style={[styles.toolbarActions, isMobile && styles.toolbarActionsMobile, isMobile && (showBack || showPreferences) && styles.toolbarActionsSingleRow]}>
+              <View style={[styles.toolbarActions, isMobile && styles.toolbarActionsMobile, useSingleRowToolbar && styles.toolbarActionsSingleRow]}>
                 {toolbarActions}
                 {showPreferences ? <PreferenceControls compact={width < 760} /> : null}
               </View>

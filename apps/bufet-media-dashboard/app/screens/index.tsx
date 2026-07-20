@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, RadioButton, Text } from 'react-native-paper';
+import { Button, IconButton, RadioButton, Text } from 'react-native-paper';
 import { TextInput } from '../../components/TextInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -19,6 +19,7 @@ export default function ScreensScreen() {
   useProtectedRoute();
   const { width } = useWindowDimensions();
   const isMobile = width < 980;
+  const isNarrowHeader = width < 600;
   const router = useRouter();
   const queryClient = useQueryClient();
   const screensQuery = useQuery({ queryKey: ['screens'], queryFn: ({ signal }) => apiClient.getScreens(signal) });
@@ -95,12 +96,33 @@ export default function ScreensScreen() {
       subtitle={t('screens.subtitle')}
       actions={
         <View style={styles.headerActions}>
-          <Button mode="outlined" onPress={() => router.push('/scan')}>
-            {t('dashboard.scanQr')}
-          </Button>
-          <Button mode="contained" onPress={() => queryClient.invalidateQueries({ queryKey: ['screens'] })}>
-            {t('common.refresh')}
-          </Button>
+          {isNarrowHeader ? (
+            <>
+              <IconButton
+                accessibilityLabel={t('dashboard.scanQr')}
+                icon="qrcode-scan"
+                iconColor={colors.textPrimary}
+                onPress={() => router.push('/scan')}
+                style={styles.headerIconButton}
+              />
+              <IconButton
+                accessibilityLabel={t('common.refresh')}
+                icon="refresh"
+                iconColor={colors.onAccent}
+                onPress={() => queryClient.invalidateQueries({ queryKey: ['screens'] })}
+                style={[styles.headerIconButton, styles.headerIconButtonProminent]}
+              />
+            </>
+          ) : (
+            <>
+              <Button mode="outlined" onPress={() => router.push('/scan')}>
+                {t('dashboard.scanQr')}
+              </Button>
+              <Button mode="contained" onPress={() => queryClient.invalidateQueries({ queryKey: ['screens'] })}>
+                {t('common.refresh')}
+              </Button>
+            </>
+          )}
         </View>
       }
     >
@@ -174,8 +196,20 @@ export default function ScreensScreen() {
 const createStyles = (colors: AppColors) => StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: 8,
+  },
+  headerIconButton: {
+    width: 42,
+    height: 42,
+    margin: 0,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  headerIconButtonProminent: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
   },
   cardTitle: {
     fontFamily: brandFonts.heading,
