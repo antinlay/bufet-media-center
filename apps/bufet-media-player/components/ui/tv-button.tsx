@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type PressableProps,
   type StyleProp,
   type TextStyle,
@@ -11,11 +12,12 @@ import {
 
 type TvButtonVariant = 'primary' | 'secondary' | 'ghost';
 
-type TvButtonProps = Pick<PressableProps, 'disabled' | 'hasTVPreferredFocus' | 'onPress' | 'testID'> & {
+export type TvButtonProps = Pick<PressableProps, 'disabled' | 'hasTVPreferredFocus' | 'onPress' | 'testID'> & {
   label: string;
   variant?: TvButtonVariant;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  icon?: ReactNode;
 };
 
 export function TvButton({
@@ -27,6 +29,7 @@ export function TvButton({
   hasTVPreferredFocus,
   onPress,
   testID,
+  icon,
 }: TvButtonProps) {
   const [focused, setFocused] = useState(false);
   const variantStyle = variant === 'primary' ? styles.primary : variant === 'secondary' ? styles.secondary : styles.ghost;
@@ -52,16 +55,19 @@ export function TvButton({
         style,
       ]}
     >
-      <Text
-        style={[
-          styles.label,
-          labelStyle,
-          focused ? styles.focusedLabel : undefined,
-          textStyle,
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={styles.content}>
+        {icon ? <View style={styles.icon}>{icon}</View> : null}
+        <Text
+          style={[
+            styles.label,
+            labelStyle,
+            focused ? styles.focusedLabel : undefined,
+            textStyle,
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -106,6 +112,16 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '700',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 22,
+  },
+  icon: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryLabel: {
     color: '#ffffff',

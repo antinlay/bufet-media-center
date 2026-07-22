@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
+import { PlayerBrandHeader, PlayerSurface } from '@/components/ui/player-design';
 import { PlayerService } from '@/services/player-service';
 
 export default function LoadingScreen() {
@@ -29,23 +30,28 @@ export default function LoadingScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#ffffff" />
-      <Text style={styles.text}>{error ?? 'Initializing BUFET Player...'}</Text>
-    </View>
+    <PlayerSurface scroll={false}>
+      <View style={styles.container}>
+        <PlayerBrandHeader />
+        <ActivityIndicator size="large" color="#ff9700" style={styles.spinner} />
+        <Text style={styles.text}>{error ?? 'Initializing BUFET Player...'}</Text>
+      </View>
+    </PlayerSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  spinner: {
+    marginTop: 38,
+  },
   text: {
     color: '#ffffff',
-    marginTop: 20,
-    fontSize: 16,
+    marginTop: 24,
+    fontSize: 24,
   },
 });

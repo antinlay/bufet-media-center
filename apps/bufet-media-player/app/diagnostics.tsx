@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import * as Network from 'expo-network';
 import { router } from 'expo-router';
 
+import {
+  HeartbeatIcon,
+  PlayerButton,
+  PlayerSurface,
+  SetupIcon,
+  usePlayerLayout,
+} from '@/components/ui/player-design';
 import { ApiBaseUrl, type ProbeResult } from '@/services/api-base-url';
 import { PlayerService } from '@/services/player-service';
-import { TvButton } from '@/components/ui/tv-button';
 
 type CheckState = {
   networkState?: Awaited<ReturnType<typeof Network.getNetworkStateAsync>>;
@@ -29,6 +35,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function DiagnosticsScreen() {
+  const { compactPadding, actionInset } = usePlayerLayout();
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [checks, setChecks] = useState<CheckState>({});
@@ -36,7 +43,6 @@ export default function DiagnosticsScreen() {
 
   const envApiUrl = useMemo(() => process.env.EXPO_PUBLIC_API_URL ?? '(unset)', []);
   const configuredApiUrl = useMemo(() => ApiBaseUrl.getConfiguredApiUrl(), []);
-
   useEffect(() => {
     const init = async () => {
       const saved = await ApiBaseUrl.readSavedBaseUrl();
@@ -106,114 +112,145 @@ export default function DiagnosticsScreen() {
   };
 
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Diagnostics</Text>
-
-      <Row label="deviceId" value={deviceId ?? '(loading)'} />
-      <Row label="cached baseUrl" value={PlayerService.getCachedApiBaseUrl() ?? '(none)'} />
-      <Row label="saved baseUrl" value={checks.savedBaseUrl ?? '(none)'} />
-      <Row label="resolved baseUrl" value={checks.resolvedBaseUrl ?? '(none)'} />
-      <Row label="EXPO_PUBLIC_API_URL" value={envApiUrl} />
-      <Row label="configured API URL" value={configuredApiUrl ?? '(unset)'} />
-
-      <Row
-        label="network"
-        value={
-          checks.networkState
-            ? `${checks.networkState.type} connected=${String(checks.networkState.isConnected)} internet=${String(checks.networkState.isInternetReachable)}`
-            : '(unknown)'
-        }
-      />
-      <Row label="ip" value={checks.ip ?? '(unknown)'} />
-      <Row
-        label="manifest"
-        value={
-          checks.manifest
-            ? `OK: items=${checks.manifest.itemCount} screen=${checks.manifest.screenId ?? '(unknown)'}`
-            : checks.manifestError ?? '(not checked)'
-        }
-      />
-
-      <View style={styles.section}>
-        <TvButton label="Run checks" onPress={() => void runChecks()} disabled={busy} hasTVPreferredFocus />
-        <TvButton
-          label="Go to setup"
-          variant="secondary"
-          onPress={() => router.push('/setup')}
-          style={styles.secondaryButton}
-        />
-      </View>
-
-      {busy ? <ActivityIndicator size="large" color="#ffffff" style={styles.spinner} /> : null}
-
-      {checks.screenError ? <Text style={styles.error} selectable>{checks.screenError}</Text> : null}
-
-      {checks.probe ? (
-        <View style={styles.section}>
-          <Text style={styles.subtitle}>Probe</Text>
-          <Text style={styles.value} selectable>
-            {checks.probe.ok ? `OK: ${checks.probe.baseUrl} (${checks.probe.status})` : `FAIL: ${checks.probe.baseUrl} - ${checks.probe.reason}${checks.probe.status ? ` (${checks.probe.status})` : ''}`}
-          </Text>
-          {!checks.probe.ok && checks.probe.body ? <Text style={styles.muted} selectable>Body: {checks.probe.body}</Text> : null}
+    <PlayerSurface contentContainerStyle={[styles.container, { paddingHorizontal: compactPadding }]}>
+        <View style={styles.header}>
+          <HeartbeatIcon />
+          <Text style={styles.title}>Diagnostics</Text>
         </View>
-      ) : null}
 
-      {checks.lastError ? (
-        <View style={styles.section}>
-          <Text style={styles.subtitle}>Last error</Text>
-          <Text style={styles.muted} selectable>{JSON.stringify(checks.lastError, null, 2)}</Text>
+        <View style={styles.details}>
+          <Row label="deviceId" value={deviceId ?? '(loading)'} />
+          <Row label="cached baseUrl" value={PlayerService.getCachedApiBaseUrl() ?? '(none)'} />
+          <Row label="saved baseUrl" value={checks.savedBaseUrl ?? '(none)'} />
+          <Row label="EXPO_PUBLIC_API_URL" value={envApiUrl} />
+          <Row label="configured API URL" value={configuredApiUrl ?? '(unset)'} />
+
+          <Row
+            label="network"
+            value={
+              checks.networkState
+                ? `${checks.networkState.type} connected=${String(checks.networkState.isConnected)} internet=${String(checks.networkState.isInternetReachable)}`
+                : '(unknown)'
+            }
+          />
+          <Row label="ip" value={checks.ip ?? '(unknown)'} />
         </View>
-      ) : null}
-    </ScrollView>
+
+        <View style={[styles.actions, { marginHorizontal: actionInset }]}>
+          <PlayerButton
+            label="Run checks"
+            icon={<HeartbeatIcon size={36} color="#ffffff" />}
+            onPress={() => void runChecks()}
+            disabled={busy}
+            hasTVPreferredFocus
+            variant="primary"
+            style={styles.diagnosticsButton}
+          />
+          <PlayerButton
+            label="Go to setup"
+            icon={<SetupIcon color="#ffffff" />}
+            variant="secondary"
+            onPress={() => router.push('/setup')}
+            style={styles.diagnosticsButton}
+          />
+        </View>
+
+        {busy ? <ActivityIndicator size="large" color="#ffffff" style={styles.spinner} /> : null}
+
+        {checks.screenError ? <Text style={styles.error} selectable>{checks.screenError}</Text> : null}
+
+        {checks.probe ? (
+          <View style={styles.section}>
+            <Text style={styles.subtitle}>Probe</Text>
+            <Text style={styles.probeValue} selectable>
+              {checks.probe.ok ? `OK: ${checks.probe.baseUrl} (${checks.probe.status})` : `FAIL: ${checks.probe.baseUrl} - ${checks.probe.reason}${checks.probe.status ? ` (${checks.probe.status})` : ''}`}
+            </Text>
+            {!checks.probe.ok && checks.probe.body ? <Text style={styles.muted} selectable>Body: {checks.probe.body}</Text> : null}
+          </View>
+        ) : null}
+
+        {checks.lastError ? (
+          <View style={styles.section}>
+            <Text style={styles.subtitle}>Last error</Text>
+            <Text style={styles.muted} selectable>{JSON.stringify(checks.lastError, null, 2)}</Text>
+          </View>
+        ) : null}
+    </PlayerSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#000000',
-    padding: 24,
     flexGrow: 1,
+    paddingTop: 54,
+    paddingBottom: 42,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 30,
+    marginBottom: 36,
   },
   title: {
     color: '#ffffff',
-    fontSize: 28,
+    fontSize: 40,
+    lineHeight: 48,
     fontWeight: '700',
-    marginBottom: 18,
+  },
+  details: {
+    gap: 12,
   },
   subtitle: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   row: {
-    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 46,
   },
   label: {
-    color: '#aaaaaa',
-    fontSize: 12,
+    width: '20%',
+    color: '#a9aaad',
+    fontSize: 24,
+    lineHeight: 31,
   },
   value: {
+    flex: 1,
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 24,
+    lineHeight: 31,
+  },
+  actions: {
+    marginTop: 28,
+    gap: 24,
+  },
+  diagnosticsButton: {
+    minHeight: 88,
   },
   section: {
-    marginTop: 18,
-  },
-  secondaryButton: {
-    marginTop: 12,
+    marginTop: 40,
   },
   spinner: {
     marginTop: 14,
   },
+  probeValue: {
+    color: '#ffffff',
+    fontSize: 24,
+    lineHeight: 31,
+  },
   muted: {
-    color: '#aaaaaa',
+    color: '#a9aaad',
     marginTop: 8,
-    fontSize: 12,
+    fontSize: 18,
+    lineHeight: 24,
   },
   error: {
     color: '#ff8a80',
     marginTop: 14,
-    fontSize: 14,
+    fontSize: 18,
   },
 });

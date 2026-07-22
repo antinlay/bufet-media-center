@@ -181,7 +181,8 @@ export class PlayerService {
   private static localPathForItem(item: DeviceConfigResponse['playlist']['items'][number], kind: 'media' | 'thumbnail'): string {
     const url = kind === 'media' ? item.url : item.thumbnailUrl ?? '';
     const ext = this.extensionForUrl(url);
-    return `${this.MEDIA_CACHE_DIR}/${this.hashUrl(`${item.id}:${kind}`)}${ext}`;
+    const stableUrl = url.split(/[?#]/)[0];
+    return `${this.MEDIA_CACHE_DIR}/${this.hashUrl(`${item.id}:${kind}:${stableUrl}:${String(item.updatedAt ?? '')}`)}${ext}`;
   }
 
   static async saveCachedPlaylist(payload: { items: DeviceConfigResponse['playlist']['items']; configVersion?: string }) {
@@ -212,12 +213,12 @@ export class PlayerService {
       if (item.url && isAbsoluteUrl(item.url)) {
         const local = this.localPathForItem(item, 'media');
         const info = await FileSystem.getInfoAsync(local);
-        if (info.exists) next.url = local;
+        if (info.exists && info.size > 0) next.url = local;
       }
       if (item.thumbnailUrl && isAbsoluteUrl(item.thumbnailUrl)) {
         const local = this.localPathForItem(item, 'thumbnail');
         const info = await FileSystem.getInfoAsync(local);
-        if (info.exists) next.thumbnailUrl = local;
+        if (info.exists && info.size > 0) next.thumbnailUrl = local;
       }
       return next;
     }));
@@ -225,7 +226,7 @@ export class PlayerService {
   }
 
   static async cachePlaylistMedia(items: DeviceConfigResponse['playlist']['items']) {
-    if (!FileSystem.documentDirectory) return;
+    if (!FileSystem.documentDirectory) return items;
     await this.ensureMediaCacheDir();
     const targets = new Set<string>();
     const downloads: Array<{ url: string; local: string }> = [];
@@ -235,17 +236,26 @@ export class PlayerService {
       if (item.thumbnailUrl && isAbsoluteUrl(item.thumbnailUrl)) downloads.push({ url: item.thumbnailUrl, local: this.localPathForItem(item, 'thumbnail') });
     });
 
-    for (const { url, local } of downloads) {
+    await Promise.all(downloads.map(async ({ url, local }) => {
       targets.add(local);
       const info = await FileSystem.getInfoAsync(local);
-      if (!info.exists) {
+      if (!info.exists || info.size <= 0) {
+        const temporary = `${local}.download`;
         try {
-          await FileSystem.downloadAsync(url, local);
+          await FileSystem.deleteAsync(local, { idempotent: true });
+          await FileSystem.deleteAsync(temporary, { idempotent: true });
+          const response = await FileSystem.downloadAsync(url, temporary);
+          const downloaded = await FileSystem.getInfoAsync(temporary);
+          if (response.status < 200 || response.status >= 300 || !downloaded.exists || downloaded.size <= 0) {
+            throw new Error(`Media download failed with status ${response.status}`);
+          }
+          await FileSystem.moveAsync({ from: temporary, to: local });
         } catch (error) {
+          await FileSystem.deleteAsync(temporary, { idempotent: true }).catch(() => undefined);
           console.warn('Media cache download failed', error);
         }
       }
-    }
+    }));
 
     try {
       const cachedFiles = await FileSystem.readDirectoryAsync(this.MEDIA_CACHE_DIR);
@@ -260,6 +270,8 @@ export class PlayerService {
     } catch (error) {
       console.warn('Media cache cleanup failed', error);
     }
+
+    return this.applyMediaCache(items);
   }
 
   private static generateId(): string {

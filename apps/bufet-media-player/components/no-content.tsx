@@ -1,30 +1,34 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { MonitorAlertIcon } from '@/components/ui/player-design';
+
 export function NoContent() {
   return (
-    <View style={styles.noContentContainer}>
-      <Text style={styles.noContentText}>No Content Assigned</Text>
-      <Text style={styles.noContentSubtext}>Please assign a playlist in the dashboard</Text>
+    <View style={styles.container}>
+      <MonitorAlertIcon />
+      <Text style={styles.title}>Нет назначенного контента</Text>
+      <Text style={styles.subtitle}>Назначьте плейлист в кабинете</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  noContentContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  container: {
     alignItems: 'center',
-    backgroundColor: '#000000',
   },
-  noContentText: {
+  title: {
     color: '#ffffff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 42,
+    lineHeight: 52,
+    fontWeight: '700',
+    marginTop: 34,
+    textAlign: 'center',
   },
-  noContentSubtext: {
-    color: '#cccccc',
-    fontSize: 16,
+  subtitle: {
+    color: '#a9aaad',
+    fontSize: 28,
+    lineHeight: 36,
+    marginTop: 10,
     textAlign: 'center',
   },
 });

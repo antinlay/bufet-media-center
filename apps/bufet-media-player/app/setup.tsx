@@ -2,11 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
+import {
+  HeartbeatIcon,
+  PlayerBrandHeader,
+  PlayerButton,
+  PlayerField,
+  PlayerSurface,
+  RefreshIcon,
+  TrashIcon,
+  usePlayerLayout,
+} from '@/components/ui/player-design';
 import { ApiBaseUrl, type DiscoverProgress } from '@/services/api-base-url';
 import { PlayerService } from '@/services/player-service';
-import { TvButton } from '@/components/ui/tv-button';
 
 export default function SetupScreen() {
+  const { pagePadding } = usePlayerLayout();
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
   const [configuredUrl, setConfiguredUrl] = useState<string | null>(null);
@@ -105,18 +115,18 @@ export default function SetupScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <PlayerSurface contentContainerStyle={[styles.container, { paddingHorizontal: pagePadding }]}>
+      <PlayerBrandHeader />
+
       <Text style={styles.title}>BUFET Player Setup</Text>
 
-      <Text style={styles.label}>Saved API URL</Text>
-      <Text style={styles.value} selectable>{savedUrl ?? '(none)'}</Text>
+      <View style={styles.form}>
+        <PlayerField label="Saved API URL" value={savedUrl} />
+        <PlayerField label="Configured API URL" value={configuredUrl} />
 
-      <Text style={styles.label}>Configured API URL</Text>
-      <Text style={styles.value} selectable>{configuredUrl ?? '(none)'}</Text>
-
-      <View style={styles.row}>
-        <TvButton
+        <PlayerButton
           label="Refresh"
+          icon={<RefreshIcon />}
           onPress={() => void onRefresh()}
           disabled={busy}
           hasTVPreferredFocus
@@ -124,26 +134,30 @@ export default function SetupScreen() {
         />
       </View>
 
-      <View style={styles.row}>
-        <TvButton
+      <View style={styles.actionRow}>
+        <PlayerButton
           label="Clear saved"
+          icon={<TrashIcon color="#ffffff" />}
           variant="secondary"
           onPress={() => void onClear()}
           disabled={busy}
-          style={styles.rowButton}
+          style={styles.actionButton}
         />
-        <TvButton
+        <PlayerButton
           label="Open diagnostics"
-          variant="ghost"
+          icon={<HeartbeatIcon size={36} color="#ffffff" />}
+          variant="secondary"
           onPress={() => router.push('/diagnostics')}
           disabled={busy}
-          style={styles.rowButton}
+          style={styles.actionButton}
         />
       </View>
 
-      <View style={styles.row}>
-        {busy && progress ? <TvButton label="Cancel" variant="ghost" onPress={onCancel} style={styles.inlineButton} /> : null}
-      </View>
+      {busy && progress ? (
+        <View style={styles.cancelRow}>
+          <PlayerButton label="Cancel" variant="secondary" onPress={onCancel} style={styles.cancelButton} />
+        </View>
+      ) : null}
 
       {busy ? <ActivityIndicator size="large" color="#ffffff" style={styles.spinner} /> : null}
 
@@ -155,60 +169,61 @@ export default function SetupScreen() {
       ) : null}
 
       {message ? <Text style={styles.message} selectable>{message}</Text> : null}
-    </View>
+    </PlayerSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#000000',
-    padding: 24,
-    justifyContent: 'center',
+    flexGrow: 1,
+    paddingTop: 56,
+    paddingBottom: 50,
   },
   title: {
     color: '#ffffff',
-    fontSize: 28,
+    fontSize: 60,
+    lineHeight: 72,
     fontWeight: '700',
-    marginBottom: 18,
+    marginTop: 70,
   },
-  label: {
-    color: '#cccccc',
-    fontSize: 14,
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  value: {
-    color: '#ffffff',
-    fontSize: 14,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-    flexWrap: 'wrap',
+  form: {
+    width: '100%',
+    maxWidth: 768,
+    marginTop: 48,
   },
   primaryButton: {
-    minWidth: 200,
+    width: '50%',
+    minHeight: 80,
   },
-  rowButton: {
+  actionRow: {
+    flexDirection: 'row',
+    gap: 36,
+    marginTop: 46,
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: 100,
+  },
+  cancelRow: {
+    alignItems: 'flex-start',
+    marginTop: 18,
+  },
+  cancelButton: {
     minWidth: 180,
-    flexGrow: 1,
-  },
-  inlineButton: {
-    minWidth: 140,
   },
   spinner: {
-    marginTop: 14,
+    marginTop: 22,
   },
   muted: {
-    color: '#aaaaaa',
+    color: '#a9aaad',
     marginTop: 8,
-    fontSize: 12,
+    fontSize: 18,
+    lineHeight: 24,
   },
   message: {
-    color: '#4da3ff',
-    marginTop: 14,
-    fontSize: 14,
+    color: '#a9aaad',
+    marginTop: 16,
+    fontSize: 18,
+    lineHeight: 25,
   },
 });
