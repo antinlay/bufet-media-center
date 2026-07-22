@@ -12,16 +12,28 @@ import {
   TrashIcon,
   usePlayerLayout,
 } from '@/components/ui/player-design';
+import { playerColors } from '@/components/ui/player-theme';
+import {
+  usePlayerLocalization,
+  type TranslationOptions,
+} from '@/localization/player-localization';
+import type { TranslationKey } from '@/localization/translations';
 import { ApiBaseUrl, type DiscoverProgress } from '@/services/api-base-url';
 import { PlayerService } from '@/services/player-service';
 
+type SetupMessage = {
+  key: TranslationKey;
+  options?: TranslationOptions;
+};
+
 export default function SetupScreen() {
   const { pagePadding } = usePlayerLayout();
+  const { t } = usePlayerLocalization();
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
   const [configuredUrl, setConfiguredUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<SetupMessage | null>(null);
   const [progress, setProgress] = useState<DiscoverProgress | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -33,8 +45,8 @@ export default function SetupScreen() {
       setDeviceId(id);
       return id;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setMessage(`Device initialization failed: ${detail}`);
+      console.error('Device initialization failed:', error);
+      setMessage({ key: 'setup.deviceInitializationFailed' });
       return null;
     }
   };
@@ -67,7 +79,7 @@ export default function SetupScreen() {
     const controller = new AbortController();
     abortRef.current = controller;
     setBusy(true);
-    setMessage('Checking API...');
+    setMessage({ key: 'setup.checkingApi' });
     setProgress({ total: 0, done: 0 });
     try {
       const resolved = await ApiBaseUrl.resolve(id, {
@@ -78,12 +90,12 @@ export default function SetupScreen() {
       if (controller.signal.aborted) return;
 
       if (!resolved) {
-        setMessage('No API found yet. Check the network and press Refresh again.');
+        setMessage({ key: 'setup.noApiFound' });
         return;
       }
 
       setSavedUrl(resolved);
-      setMessage(`Ready: ${resolved}`);
+      setMessage({ key: 'setup.ready', options: { url: resolved } });
       router.replace('/loading');
     } finally {
       if (abortRef.current === controller) {
@@ -100,7 +112,7 @@ export default function SetupScreen() {
     try {
       await ApiBaseUrl.clearSavedBaseUrl();
       setSavedUrl(null);
-      setMessage('Saved URL cleared.');
+      setMessage({ key: 'setup.urlCleared' });
     } finally {
       setBusy(false);
     }
@@ -111,22 +123,23 @@ export default function SetupScreen() {
     abortRef.current = null;
     setBusy(false);
     setProgress(null);
-    setMessage('Discovery cancelled.');
+    setMessage({ key: 'setup.discoveryCancelled' });
   };
 
   return (
     <PlayerSurface contentContainerStyle={[styles.container, { paddingHorizontal: pagePadding }]}>
       <PlayerBrandHeader />
 
-      <Text style={styles.title}>BUFET Player Setup</Text>
+      <Text style={styles.title}>{t('setup.title')}</Text>
 
       <View style={styles.form}>
-        <PlayerField label="Saved API URL" value={savedUrl} />
-        <PlayerField label="Configured API URL" value={configuredUrl} />
+        <PlayerField label={t('setup.savedApiUrl')} value={savedUrl} />
+        <PlayerField label={t('setup.configuredApiUrl')} value={configuredUrl} />
 
         <PlayerButton
-          label="Refresh"
+          label={t('setup.refresh')}
           icon={<RefreshIcon />}
+          variant="primary"
           onPress={() => void onRefresh()}
           disabled={busy}
           hasTVPreferredFocus
@@ -136,16 +149,16 @@ export default function SetupScreen() {
 
       <View style={styles.actionRow}>
         <PlayerButton
-          label="Clear saved"
-          icon={<TrashIcon color="#ffffff" />}
+          label={t('setup.clearSaved')}
+          icon={<TrashIcon color={playerColors.primaryText} />}
           variant="secondary"
           onPress={() => void onClear()}
           disabled={busy}
           style={styles.actionButton}
         />
         <PlayerButton
-          label="Open diagnostics"
-          icon={<HeartbeatIcon size={36} color="#ffffff" />}
+          label={t('common.openDiagnostics')}
+          icon={<HeartbeatIcon size={36} color={playerColors.primaryText} />}
           variant="secondary"
           onPress={() => router.push('/diagnostics')}
           disabled={busy}
@@ -155,20 +168,20 @@ export default function SetupScreen() {
 
       {busy && progress ? (
         <View style={styles.cancelRow}>
-          <PlayerButton label="Cancel" variant="secondary" onPress={onCancel} style={styles.cancelButton} />
+          <PlayerButton label={t('common.cancel')} variant="secondary" onPress={onCancel} style={styles.cancelButton} />
         </View>
       ) : null}
 
-      {busy ? <ActivityIndicator size="large" color="#ffffff" style={styles.spinner} /> : null}
+      {busy ? <ActivityIndicator size="large" color={playerColors.accent} style={styles.spinner} /> : null}
 
       {progress ? (
         <Text style={styles.muted}>
-          Scanning: {progress.done}/{progress.total}
+          {t('setup.scanning', { done: progress.done, total: progress.total })}
           {progress.current ? ` (${progress.current})` : ''}
         </Text>
       ) : null}
 
-      {message ? <Text style={styles.message} selectable>{message}</Text> : null}
+      {message ? <Text style={styles.message} selectable>{t(message.key, message.options)}</Text> : null}
     </PlayerSurface>
   );
 }
@@ -180,7 +193,7 @@ const styles = StyleSheet.create({
     paddingBottom: 50,
   },
   title: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     fontSize: 60,
     lineHeight: 72,
     fontWeight: '700',
@@ -215,13 +228,13 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   muted: {
-    color: '#a9aaad',
+    color: playerColors.secondaryText,
     marginTop: 8,
     fontSize: 18,
     lineHeight: 24,
   },
   message: {
-    color: '#a9aaad',
+    color: playerColors.secondaryText,
     marginTop: 16,
     fontSize: 18,
     lineHeight: 25,

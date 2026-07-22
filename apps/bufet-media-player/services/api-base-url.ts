@@ -18,12 +18,13 @@ type ProbeOk = {
 type ProbeFail = {
   ok: false;
   baseUrl: string;
-  reason: string;
+  reason: ProbeFailureReason;
   status?: number;
   body?: string;
 };
 
 type ProbeResult = ProbeOk | ProbeFail;
+type ProbeFailureReason = 'networkError' | 'timeout' | 'unexpectedResponse';
 
 let cachedBaseUrl: string | null = null;
 
@@ -138,13 +139,12 @@ async function probe(
     return {
       ok: false,
       baseUrl,
-      reason: 'Unexpected response',
+      reason: 'unexpectedResponse',
       status,
       body: text?.slice(0, 500),
     };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    const reason = signal.aborted ? 'Timeout' : message;
+  } catch {
+    const reason = signal.aborted ? 'timeout' : 'networkError';
     return { ok: false, baseUrl, reason };
   } finally {
     cancel();
@@ -305,4 +305,4 @@ export const ApiBaseUrl = {
   discoverOnLan,
 };
 
-export type { DiscoverProgress, ProbeResult };
+export type { DiscoverProgress, ProbeFailureReason, ProbeResult };

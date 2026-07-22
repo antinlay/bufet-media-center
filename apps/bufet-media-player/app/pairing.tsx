@@ -11,6 +11,8 @@ import {
   RefreshIcon,
   SetupIcon,
 } from '@/components/ui/player-design';
+import { playerColors } from '@/components/ui/player-theme';
+import { usePlayerLocalization } from '@/localization/player-localization';
 import { PlayerService } from '@/services/player-service';
 
 type PairingParams = {
@@ -19,13 +21,14 @@ type PairingParams = {
 
 export default function PairingScreen() {
   const router = useRouter();
+  const { t } = usePlayerLocalization();
   const { deviceId } = useLocalSearchParams<PairingParams>();
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollAbortRef = useRef<AbortController | null>(null);
 
   const [pairingData, setPairingData] = useState<{ code: string; pairUrl: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
 
   const clearPoll = () => {
     pollAbortRef.current?.abort();
@@ -45,7 +48,7 @@ export default function PairingScreen() {
 
     clearPoll();
     setLoading(true);
-    setError(null);
+    setHasError(false);
 
     try {
       const pairing = await PlayerService.createPairing(deviceId);
@@ -77,8 +80,7 @@ export default function PairingScreen() {
       };
       pollRef.current = setTimeout(() => void poll(), 3000);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create pairing code';
-      setError(message);
+      setHasError(true);
       console.error('Pairing error:', err);
     } finally {
       setLoading(false);
@@ -100,24 +102,24 @@ export default function PairingScreen() {
       <PlayerSurface scroll={false}>
         <View style={styles.loadingContainer}>
           <PlayerBrandHeader />
-          <ActivityIndicator size="large" color="#ff9700" style={styles.spinner} />
-          <Text style={styles.text}>Creating pairing code...</Text>
+          <ActivityIndicator size="large" color={playerColors.accent} style={styles.spinner} />
+          <Text style={styles.text}>{t('pairing.creating')}</Text>
         </View>
       </PlayerSurface>
     );
   }
 
-  if (error || !pairingData) {
+  if (hasError || !pairingData) {
     const baseUrl = PlayerService.getCachedApiBaseUrl();
     return (
       <PlayerSurface scroll={false}>
         <View style={styles.errorContainer}>
           <PlayerBrandHeader />
-          <Text style={styles.errorText} selectable>{error ?? 'Unknown error occurred'}</Text>
-          <Text style={styles.hintText} selectable>API: {baseUrl ?? '(not resolved)'}</Text>
+          <Text style={styles.errorText} selectable>{t(hasError ? 'pairing.createFailed' : 'common.unknownError')}</Text>
+          <Text style={styles.hintText} selectable>{t('common.api')}: {baseUrl ?? `(${t('common.notResolved')})`}</Text>
           <View style={styles.actions}>
             <PlayerButton
-              label="Retry"
+              label={t('common.retry')}
               icon={<RefreshIcon />}
               variant="primary"
               onPress={() => void loadPairing()}
@@ -125,14 +127,14 @@ export default function PairingScreen() {
               style={styles.actionButton}
             />
             <PlayerButton
-              label="Open setup"
+              label={t('common.openSetup')}
               icon={<SetupIcon />}
               variant="secondary"
               onPress={() => router.push('/setup')}
               style={styles.actionButton}
             />
             <PlayerButton
-              label="Open diagnostics"
+              label={t('common.openDiagnostics')}
               icon={<HeartbeatIcon size={36} />}
               variant="secondary"
               onPress={() => router.push('/diagnostics')}
@@ -148,18 +150,18 @@ export default function PairingScreen() {
     <PlayerSurface contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
         <PlayerBrandHeader />
-        <Text style={styles.title}>Pair Your Device</Text>
-        <Text style={styles.subtitle}>Scan the QR code or visit the URL below</Text>
+        <Text style={styles.title}>{t('pairing.title')}</Text>
+        <Text style={styles.subtitle}>{t('pairing.subtitle')}</Text>
 
         <View style={styles.qrContainer}>
           <QRCode value={pairingData.pairUrl} size={250} backgroundColor="#ffffff" color="#000000" />
         </View>
 
-        <Text style={styles.codeText} selectable>Pairing Code: {pairingData.code}</Text>
+        <Text style={styles.codeText} selectable>{t('pairing.code', { code: pairingData.code })}</Text>
         <Text style={styles.urlText} selectable>{pairingData.pairUrl}</Text>
 
-        <Text style={styles.statusText}>Waiting for pairing confirmation...</Text>
-        <ActivityIndicator size="small" color="#ffffff" style={styles.spinner} />
+        <Text style={styles.statusText}>{t('pairing.waiting')}</Text>
+        <ActivityIndicator size="small" color={playerColors.primaryText} style={styles.spinner} />
       </View>
     </PlayerSurface>
   );
@@ -188,14 +190,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 46,
   },
   title: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     fontSize: 52,
     lineHeight: 62,
     fontWeight: '700',
     marginTop: 74,
   },
   subtitle: {
-    color: '#a9aaad',
+    color: playerColors.secondaryText,
     fontSize: 25,
     lineHeight: 32,
     textAlign: 'center',
@@ -203,16 +205,16 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   qrContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: playerColors.primaryText,
     padding: 22,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#ff9700',
+    borderColor: playerColors.accent,
     marginBottom: 28,
     boxShadow: '0 0 20px 2px rgba(247, 126, 0, 0.3)',
   },
   codeText: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     fontSize: 26,
     lineHeight: 34,
     fontWeight: '700',
@@ -220,14 +222,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   urlText: {
-    color: '#a9aaad',
+    color: playerColors.secondaryText,
     fontSize: 18,
     lineHeight: 25,
     textAlign: 'center',
     marginBottom: 26,
   },
   statusText: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     fontSize: 22,
     lineHeight: 29,
     textAlign: 'center',
@@ -236,7 +238,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   errorText: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     fontSize: 28,
     lineHeight: 36,
     fontWeight: '700',
@@ -244,7 +246,7 @@ const styles = StyleSheet.create({
     marginTop: 54,
   },
   hintText: {
-    color: '#a9aaad',
+    color: playerColors.secondaryText,
     fontSize: 20,
     lineHeight: 28,
     textAlign: 'center',
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
     minHeight: 76,
   },
   text: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     marginTop: 24,
     fontSize: 24,
   },

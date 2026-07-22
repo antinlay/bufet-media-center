@@ -1,9 +1,11 @@
 import { Stack } from 'expo-router';
 import 'react-native-reanimated';
 
+import { PlayerLocalizationProvider } from '@/localization/player-localization';
+
 export default function RootLayout() {
   return (
-    <>
+    <PlayerLocalizationProvider>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -13,6 +15,6 @@ export default function RootLayout() {
           statusBarAnimation: 'fade',
         }}
       />
-    </>
+    </PlayerLocalizationProvider>
   );
 }

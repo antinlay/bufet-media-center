@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Буфет Проигрыватель"
+  },
+  "android": {
+    "app_name": "Буфет Проигрыватель"
+  }
+}

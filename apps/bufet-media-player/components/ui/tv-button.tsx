@@ -10,6 +10,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { playerColors, playerShadows } from '@/components/ui/player-theme';
+
 type TvButtonVariant = 'primary' | 'secondary' | 'ghost';
 
 export type TvButtonProps = Pick<PressableProps, 'disabled' | 'hasTVPreferredFocus' | 'onPress' | 'testID'> & {
@@ -34,6 +36,7 @@ export function TvButton({
   const [focused, setFocused] = useState(false);
   const variantStyle = variant === 'primary' ? styles.primary : variant === 'secondary' ? styles.secondary : styles.ghost;
   const labelStyle = variant === 'primary' ? styles.primaryLabel : variant === 'secondary' ? styles.secondaryLabel : styles.ghostLabel;
+  const focusedStyle = variant === 'primary' ? styles.primaryFocused : styles.secondaryFocused;
 
   return (
     <Pressable
@@ -48,7 +51,7 @@ export function TvButton({
       style={({ pressed }) => [
         styles.base,
         variantStyle,
-        focused ? styles.focused : undefined,
+        focused ? focusedStyle : undefined,
         focused ? styles.focusedShadow : undefined,
         pressed ? styles.pressed : undefined,
         disabled ? styles.disabled : undefined,
@@ -83,24 +86,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primary: {
-    backgroundColor: '#2a7bff',
-    borderColor: '#2a7bff',
+    backgroundColor: playerColors.accentButton,
+    borderColor: playerColors.accentBorder,
   },
   secondary: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#3a3a3a',
+    backgroundColor: playerColors.panel,
+    borderColor: playerColors.panelBorder,
   },
   ghost: {
     backgroundColor: 'transparent',
-    borderColor: '#3a3a3a',
+    borderColor: playerColors.panelBorder,
   },
-  focused: {
-    borderColor: '#a6d1ff',
-    backgroundColor: '#0f243d',
+  primaryFocused: {
+    borderColor: playerColors.primaryText,
+    backgroundColor: playerColors.accent,
+    transform: [{ scale: 1.02 }],
+  },
+  secondaryFocused: {
+    borderColor: playerColors.accentBorder,
+    backgroundColor: playerColors.focusedPanel,
     transform: [{ scale: 1.02 }],
   },
   focusedShadow: {
-    boxShadow: '0 0 10px rgba(166, 209, 255, 0.45)',
+    boxShadow: playerShadows.focused,
   },
   pressed: {
     opacity: 0.84,
@@ -109,7 +117,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   label: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -124,15 +132,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryLabel: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
   },
   secondaryLabel: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
   },
   ghostLabel: {
-    color: '#dbe9ff',
+    color: playerColors.primaryText,
   },
   focusedLabel: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
   },
 });

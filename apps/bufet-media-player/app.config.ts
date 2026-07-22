@@ -24,7 +24,7 @@ export default (): ExpoConfig => {
   };
 
   return {
-    name: 'bufet-media-player',
+    name: 'Bufet Player',
     slug: 'bufet-media-player',
     version: '1.0.0',
     orientation: 'landscape',
@@ -34,6 +34,7 @@ export default (): ExpoConfig => {
     ios: {
       supportsTablet: true,
       infoPlist: {
+        CFBundleAllowMixedLocalizations: true,
         UIViewControllerBasedStatusBarAppearance: true,
       },
       bundleIdentifier: 'com.lyabowski.bufet-media-player',
@@ -55,9 +56,22 @@ export default (): ExpoConfig => {
       output: 'static',
       favicon: './assets/images/favicon.png',
     },
+    locales: {
+      en: './localization/en.json',
+      ru: './localization/ru.json',
+    },
     plugins: [
       'expo-router',
       'expo-image',
+      [
+        'expo-localization',
+        {
+          supportedLocales: {
+            android: ['en', 'ru'],
+            ios: ['en', 'ru'],
+          },
+        },
+      ],
       'expo-secure-store',
       [
         'expo-splash-screen',

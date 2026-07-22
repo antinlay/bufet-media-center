@@ -10,26 +10,18 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { playerColors, playerShadows } from '@/components/ui/player-theme';
 import { TvButton, type TvButtonProps } from '@/components/ui/tv-button';
+import { usePlayerLocalization } from '@/localization/player-localization';
 
-export const playerColors = {
-  background: '#050607',
-  orange: '#ff9700',
-  orangeButton: '#e87500',
-  orangeBorder: '#ff9d1a',
-  primaryText: '#ffffff',
-  secondaryText: '#a9aaad',
-  panel: 'rgba(16, 17, 19, 0.86)',
-  panelBorder: '#303134',
-  divider: '#1d1e20',
-};
+export { playerColors } from '@/components/ui/player-theme';
 
 type IconProps = {
   size?: number;
   color?: string;
 };
 
-export function HeartbeatIcon({ size = 50, color = playerColors.orange }: IconProps) {
+export function HeartbeatIcon({ size = 50, color = playerColors.accent }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 50 50" fill="none">
       <Circle cx="25" cy="25" r="23" stroke={color} strokeWidth="2.5" />
@@ -38,7 +30,7 @@ export function HeartbeatIcon({ size = 50, color = playerColors.orange }: IconPr
   );
 }
 
-export function SetupIcon({ size = 36, color = playerColors.orange }: IconProps) {
+export function SetupIcon({ size = 36, color = playerColors.accent }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 36 36" fill="none">
       <Path
@@ -52,7 +44,7 @@ export function SetupIcon({ size = 36, color = playerColors.orange }: IconProps)
   );
 }
 
-export function MonitorAlertIcon({ size = 180, color = playerColors.orange }: IconProps) {
+export function MonitorAlertIcon({ size = 180, color = playerColors.accent }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 180 180" fill="none">
       <Rect x="28" y="22" width="124" height="91" rx="12" stroke={color} strokeWidth="8" />
@@ -62,7 +54,7 @@ export function MonitorAlertIcon({ size = 180, color = playerColors.orange }: Ic
   );
 }
 
-export function LinkIcon({ size = 34, color = playerColors.orange }: IconProps) {
+export function LinkIcon({ size = 34, color = playerColors.accent }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 34 34" fill="none">
       <Path d="m13.4 20.6-1.7 1.7a5.2 5.2 0 0 1-7.4-7.4l4.2-4.2a5.2 5.2 0 0 1 7.4 0" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
@@ -80,7 +72,7 @@ export function RefreshIcon({ size = 36, color = playerColors.primaryText }: Ico
   );
 }
 
-export function TrashIcon({ size = 34, color = playerColors.orange }: IconProps) {
+export function TrashIcon({ size = 34, color = playerColors.accent }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 34 34" fill="none">
       <Path d="M8 10h18M14 6h6M11 10l1.2 18h9.6L23 10M15 15v8M19 15v8" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -124,23 +116,25 @@ export function usePlayerLayout() {
   };
 }
 
-export function PlayerBrandHeader({ title = 'БУФЕТ Player' }: { title?: string }) {
+export function PlayerBrandHeader({ title }: { title?: string }) {
+  const { t } = usePlayerLocalization();
+
   return (
     <View style={styles.brandHeader}>
       <View style={styles.brandMark}>
         <SetupIcon size={38} />
       </View>
-      <Text style={styles.brandTitle}>{title}</Text>
+      <Text style={styles.brandTitle}>{title ?? t('brand.name')}</Text>
     </View>
   );
 }
 
 export function PlayerButton({
-  variant = 'secondary',
+  variant,
   style,
   textStyle,
   ...props
-}: TvButtonProps) {
+}: Omit<TvButtonProps, 'variant'> & { variant: NonNullable<TvButtonProps['variant']> }) {
   return (
     <TvButton
       {...props}
@@ -152,12 +146,14 @@ export function PlayerButton({
 }
 
 export function PlayerField({ label, value }: { label: string; value: string | null }) {
+  const { t } = usePlayerLocalization();
+
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.field}>
         <LinkIcon />
-        <Text style={styles.fieldValue} selectable>{value ?? '(none)'}</Text>
+        <Text style={styles.fieldValue} selectable>{value ?? `(${t('common.none')})`}</Text>
       </View>
     </View>
   );
@@ -315,9 +311,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   primaryButton: {
-    backgroundColor: playerColors.orangeButton,
-    borderColor: playerColors.orangeBorder,
-    boxShadow: '0 0 18px 2px rgba(247, 126, 0, 0.45)',
+    backgroundColor: playerColors.accentButton,
+    borderColor: playerColors.accentBorder,
+    boxShadow: playerShadows.accent,
   },
   secondaryButton: {
     backgroundColor: playerColors.panel,

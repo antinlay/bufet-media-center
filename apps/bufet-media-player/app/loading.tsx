@@ -3,10 +3,13 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { PlayerBrandHeader, PlayerSurface } from '@/components/ui/player-design';
+import { playerColors } from '@/components/ui/player-theme';
+import { usePlayerLocalization } from '@/localization/player-localization';
 import { PlayerService } from '@/services/player-service';
 
 export default function LoadingScreen() {
-  const [error, setError] = useState<string | null>(null);
+  const { t } = usePlayerLocalization();
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -21,7 +24,7 @@ export default function LoadingScreen() {
         }
       } catch (err) {
         console.info('Initialization fallback:', err);
-        setError('API is unreachable. Opening setup.');
+        setHasError(true);
         setTimeout(() => router.replace('/setup'), 500);
       }
     };
@@ -33,8 +36,8 @@ export default function LoadingScreen() {
     <PlayerSurface scroll={false}>
       <View style={styles.container}>
         <PlayerBrandHeader />
-        <ActivityIndicator size="large" color="#ff9700" style={styles.spinner} />
-        <Text style={styles.text}>{error ?? 'Initializing BUFET Player...'}</Text>
+        <ActivityIndicator size="large" color={playerColors.accent} style={styles.spinner} />
+        <Text style={styles.text}>{t(hasError ? 'loading.apiUnavailable' : 'loading.initializing')}</Text>
       </View>
     </PlayerSurface>
   );
@@ -50,7 +53,7 @@ const styles = StyleSheet.create({
     marginTop: 38,
   },
   text: {
-    color: '#ffffff',
+    color: playerColors.primaryText,
     marginTop: 24,
     fontSize: 24,
   },

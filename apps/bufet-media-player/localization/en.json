@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Bufet Player"
+  },
+  "android": {
+    "app_name": "Bufet Player"
+  }
+}
