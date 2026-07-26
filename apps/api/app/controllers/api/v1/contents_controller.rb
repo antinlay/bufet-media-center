@@ -83,8 +83,16 @@ class Api::V1::ContentsController < Api::V1::BaseController
     content = Content.find(params[:id])
     authorize content
 
-    content.destroy
-    Supabase::Client.delete("media", params: { "legacy_id" => "eq.#{content.id}" }) if Supabase::Client.configured?
+    begin
+      delete_synced_media!(content)
+    rescue Supabase::Client::Error => error
+      reason = error.response_body.inspect.truncate(500)
+      Rails.logger.error("Supabase media deletion failed status=#{error.status || 'unknown'} reason=#{reason}")
+      render json: { message: "Media synchronization failed" }, status: :bad_gateway
+      return
+    end
+
+    content.destroy!
     head :no_content
   end
 
@@ -194,5 +202,19 @@ class Api::V1::ContentsController < Api::V1::BaseController
     Supabase::Sync::Content.call(content)
   rescue Supabase::Client::Error => error
     Rails.logger.warn("Supabase media sync failed: #{error.class}")
+  end
+
+  def delete_synced_media!(content)
+    return unless Supabase::Client.configured?
+
+    media = Supabase::Client.get(
+      "media",
+      params: { "select" => "id", "legacy_id" => "eq.#{content.id}", "limit" => "1" }
+    ).first
+    return unless media
+
+    media_id = media.fetch("id")
+    Supabase::Client.delete("playlist_items", params: { "media_id" => "eq.#{media_id}" })
+    Supabase::Client.delete("media", params: { "id" => "eq.#{media_id}" })
   end
 end
