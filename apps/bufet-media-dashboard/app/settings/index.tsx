@@ -29,7 +29,7 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.list}>
-        <Pressable accessibilityRole="button" onPress={() => router.push('./organizations')} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/settings/organizations')} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
           <View style={styles.icon}><MaterialCommunityIcons name="domain" color={colors.accent} size={22} /></View>
           <View style={styles.copy}><Text style={styles.itemTitle}>{t('settings.organizations')}</Text><Text style={styles.subtitle}>{t('settings.organizationsSubtitle')}</Text></View>
           <MaterialCommunityIcons name="chevron-right" color={colors.textMuted} size={22} />

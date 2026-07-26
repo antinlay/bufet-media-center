@@ -42,7 +42,7 @@ export default function OrganizationFormScreen() {
       title={t(isEditing ? 'organizations.editTitle' : 'organizations.addTitle')}
       subtitle={t(isEditing ? 'organizations.editSubtitle' : 'organizations.addSubtitle')}
     >
-      <OrganizationForm organization={organization} onSuccess={() => router.replace('../settings/organizations')} />
+      <OrganizationForm organization={organization} onSuccess={() => router.replace('/settings/organizations')} />
     </GalleryShell>
   );
 }
