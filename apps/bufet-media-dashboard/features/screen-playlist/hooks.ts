@@ -12,6 +12,7 @@ import {
 import { useI18n } from '../../providers/I18nProvider';
 import {
   addVideoUrl,
+  deleteMedia,
   loadMediaLibrary,
   loadPlaylistEditor,
   loadScreenPlaylists,
@@ -120,6 +121,19 @@ export function useAddVideoUrl() {
   return useMutation({
     mutationFn: ({ url, title }: { url: string; title: string }) => addVideoUrl(url, title, labels),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mediaLibraryKey }),
+  });
+}
+
+export function useDeleteMedia() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (contentId: number) => deleteMedia(contentId),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: mediaLibraryKey }),
+      queryClient.invalidateQueries({ queryKey: screenPlaylistsKey }),
+      queryClient.invalidateQueries({ queryKey: ['screen-playlist-editor'] }),
+    ]),
   });
 }
 

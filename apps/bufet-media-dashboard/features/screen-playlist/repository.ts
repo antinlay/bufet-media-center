@@ -105,6 +105,10 @@ export async function addVideoUrl(url: string, title: string, labels: PlaylistLa
   return item;
 }
 
+export function deleteMedia(contentId: number) {
+  return apiClient.deleteContent(contentId);
+}
+
 export async function savePlaylist(
   screenId: number,
   items: PlaylistItemViewModel[],
