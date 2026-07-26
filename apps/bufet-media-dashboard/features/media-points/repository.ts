@@ -92,6 +92,20 @@ export async function createOrganization(input: CreateOrganizationInput) {
   });
 }
 
+export function updateOrganization(id: number, input: { name: string; description?: string }) {
+  const name = input.name.trim();
+  if (!name) throw new Error('ORGANIZATION_NAME_REQUIRED');
+
+  return apiClient.updateGroup(id, {
+    name,
+    description: input.description?.trim() || undefined,
+  });
+}
+
+export function deleteOrganization(id: number) {
+  return apiClient.deleteGroup(id);
+}
+
 function findUnassignedGroup(groups: ConcertoGroup[]) {
   return groups.find((group) => group.name === SYSTEM_ADMIN_GROUP_NAME) ??
     groups.find((group) => group.systemGroup);

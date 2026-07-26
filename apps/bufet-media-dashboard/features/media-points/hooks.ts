@@ -5,7 +5,9 @@ import {
   addScreenByCode,
   createOrganization,
   deleteScreen,
+  deleteOrganization,
   loadMediaPointsDashboard,
+  updateOrganization,
 } from './repository';
 
 export const mediaPointsQueryKey = ['media-points-dashboard'] as const;
@@ -23,8 +25,34 @@ export function useCreateOrganization() {
 
   return useMutation({
     mutationFn: (input: CreateOrganizationInput) => createOrganization(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mediaPointsQueryKey }),
+    onSuccess: () => invalidateOrganizationQueries(queryClient),
   });
+}
+
+export function useUpdateOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, name, description }: { id: number; name: string; description?: string }) =>
+      updateOrganization(id, { name, description }),
+    onSuccess: () => invalidateOrganizationQueries(queryClient),
+  });
+}
+
+export function useDeleteOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => deleteOrganization(id),
+    onSuccess: () => invalidateOrganizationQueries(queryClient),
+  });
+}
+
+function invalidateOrganizationQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['groups'] });
+  queryClient.invalidateQueries({ queryKey: ['screens'] });
+  queryClient.invalidateQueries({ queryKey: ['users'] });
+  queryClient.invalidateQueries({ queryKey: mediaPointsQueryKey });
 }
 
 export function useAddScreenByCode() {
