@@ -4,7 +4,7 @@ import { Button, IconButton, Text } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { AppShell } from '../../components/AppShell';
+import { MainTabScreen } from '../../components/main-tab-screen';
 import { BrandCard } from '../../components/BrandCard';
 import { EmptyState } from '../../components/EmptyState';
 import { apiClient } from '../../lib/api';
@@ -25,10 +25,10 @@ export default function OrganizationsSettingsScreen() {
   );
 
   return (
-    <AppShell
+    <MainTabScreen
       title={t('settings.organizations')}
       subtitle={t('settings.organizationsSubtitle')}
-      actions={<Button mode="contained" onPress={() => router.push('/groups')}>{t('organizations.add')}</Button>}
+      toolbarActions={<Button mode="contained" onPress={() => router.push('/groups')}>{t('organizations.add')}</Button>}
     >
       {groupsQuery.isError ? (
         <BrandCard><Text style={{ color: colors.danger }}>{t('organizations.loadError')}</Text></BrandCard>
@@ -57,7 +57,7 @@ export default function OrganizationsSettingsScreen() {
           ))}
         </View>
       )}
-    </AppShell>
+    </MainTabScreen>
   );
 }
 
