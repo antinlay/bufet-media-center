@@ -27,6 +27,8 @@ services:
         value: async
       - key: SOLID_QUEUE_THREADS
         value: "1"
+      # Keep the Render-managed database until the migration in
+      # docs/render-to-supabase-migration.md has been completed manually.
       - key: DATABASE_URL
         fromDatabase:
           name: bufet-media-api-db

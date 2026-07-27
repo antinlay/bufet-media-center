@@ -74,6 +74,8 @@ pnpm test
 
 The Expo dashboard is deployed to [Vercel](https://bufet-media-center.vercel.app) from `vercel.json`. Its `EXPO_PUBLIC_API_URL` must point to a live API deployment; Vercel hosts the dashboard bundle and does not run the Rails API automatically. The Rails API can be provisioned from [`render.yaml`](render.yaml) as a Render Docker web service with its own PostgreSQL database.
 
+The documented, manual procedure for moving the Rails PostgreSQL database from Render to Supabase is in [`docs/render-to-supabase-migration.md`](docs/render-to-supabase-migration.md). It keeps the Render database available for rollback and does not change production `DATABASE_URL` automatically.
+
 ## Testing
 
 - API: `cd apps/api && bin/rails test`
